@@ -1,15 +1,11 @@
-import { LogOut } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { useAuth } from '../../hooks/useAuth';
 
-interface LogoutButtonProps {
-  onLogout: () => void;
-}
-
-export function LogoutButton({ onLogout }: LogoutButtonProps) {
+export function LogoutButton() {
+  const { logout } = useAuth();
+  
   return (
-    <Button variant="ghost" onClick={onLogout} className="flex items-center gap-2">
-      <LogOut size={18} />
-      <span>Sair</span>
-    </Button>
+    <button onClick={logout}>
+      Sair
+    </button>
   );
 }
