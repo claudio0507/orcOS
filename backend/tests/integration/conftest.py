@@ -45,7 +45,7 @@ async def session(engine):
 async def client(session: AsyncSession):
     """AsyncClient com override da sessão de banco e bypass de auth."""
     from app.auth.dependencies import get_current_user, require_mfa
-    from app.models.usuario import Usuario, RoleUsuario
+    from app.models.usuario import RoleUsuario, Usuario
 
     async def _override_session():
         yield session
@@ -65,7 +65,7 @@ async def client(session: AsyncSession):
     app.dependency_overrides[get_session] = _override_session
     app.dependency_overrides[get_current_user] = _mock_current_user
     app.dependency_overrides[require_mfa] = _mock_current_user
-    
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -78,19 +78,20 @@ async def client(session: AsyncSession):
 def tenant_headers(session) -> dict[str, str]:
     """Helper que retorna headers com X-Tenant-ID e Authorization Bearer de um tenant/usuário criado."""
     import asyncio
+
+    from app.auth.jwt import create_access_token
     from tests.integration.factories.tenant import TenantFactory
     from tests.integration.factories.usuario import UsuarioFactory
-    from app.auth.jwt import create_access_token
 
     async def _create():
         tenant = TenantFactory()
         session.add(tenant)
         await session.flush()
-        
+
         user = UsuarioFactory(tenant_id=tenant.id)
         session.add(user)
         await session.flush()
-        
+
         return tenant, user
 
     tenant, user = asyncio.get_event_loop().run_until_complete(_create())

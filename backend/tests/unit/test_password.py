@@ -1,4 +1,3 @@
-import pytest
 
 from app.auth.password import get_password_hash, verify_password
 

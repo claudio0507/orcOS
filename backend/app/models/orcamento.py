@@ -19,6 +19,13 @@ class StatusOrcamento(StrEnum):
 
 
 class Orcamento(TenantScopedMixin, Base):
+    """
+    Entidade que representa um orçamento de obra ou serviço.
+
+    Um orçamento é o nó pai que agrupa diversas fichas (itens de serviço).
+    Contém metadados globais, como o custo fixo total que será rateado
+    entre as fichas filhas.
+    """
     __tablename__ = "orcamentos"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -57,6 +64,6 @@ class Orcamento(TenantScopedMixin, Base):
     )
 
 
+from app.models.ficha import Ficha  # noqa: E402
 from app.models.tenant import Tenant  # noqa: E402
 from app.models.usuario import Usuario  # noqa: E402
-from app.models.ficha import Ficha  # noqa: E402

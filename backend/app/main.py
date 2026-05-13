@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
 
 from app.api.v1 import admin, admin_audit, auth, auth_mfa, fichas, orcamentos, orcamentos_spreading
 from app.core.config import settings
@@ -98,7 +97,9 @@ proporcionalmente ao peso de cada linha, preservando a invariante:
 """
 
 from contextlib import asynccontextmanager
+
 from app.audit.job import start_scheduler, stop_scheduler
+
 
 @asynccontextmanager
 async def lifespan_app(app: FastAPI):

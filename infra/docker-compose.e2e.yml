@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db_e2e:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: orcos
+      POSTGRES_PASSWORD: orcos_password
+      POSTGRES_DB: orcos_e2e
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orcos -d orcos_e2e"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app_e2e:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://orcos:orcos_password@db_e2e:5432/orcos_e2e
+      SECRET_KEY: "e2e_secret_key_change_in_prod"
+      ENVIRONMENT: "e2e"
+    depends_on:
+      db_e2e:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  default:
+    name: orcos_e2e_network

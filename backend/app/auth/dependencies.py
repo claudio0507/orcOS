@@ -1,11 +1,11 @@
 """Dependências FastAPI para autenticação (JWT e MFA)."""
-from datetime import datetime, timezone
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
-from sqlalchemy import select, text
+from sqlalchemy import text
 
 from app.api.deps import SessionDep
 from app.auth.jwt import decode_token
@@ -39,20 +39,20 @@ async def get_current_user(
         user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception
-        
+
         # Partial tokens (MFA) não dão acesso a endpoints regulares
         if payload.get("mfa_pending"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="MFA pendente. Conclua o login primeiro.",
             )
-            
+
         user_id = uuid.UUID(user_id_str)
         # Em vez de buscar só o usuário, precisamos do tenant para setar o RLS
         tenant_id = payload.get("tenant_id")
         if not tenant_id:
             raise credentials_exception
-            
+
         # Seta o RLS do banco de dados (que seria feito no get_tenant_id original)
         dialect = session.bind.dialect.name if session.bind else "postgresql"
         if dialect == "postgresql":
@@ -70,13 +70,13 @@ async def get_current_user(
     # CA-008: MFA Enforcement para L1 (ADMIN) e L2 (ORCAMENTISTA)
     if user.role in (RoleUsuario.ADMIN, RoleUsuario.ORCAMENTISTA) and not user.mfa_enabled:
         if user.mfa_enforced_at:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             # Como mfa_enforced_at pode ser naive em SQLite local, tratamos as timezones
             if user.mfa_enforced_at.tzinfo is None:
-                enforced_at = user.mfa_enforced_at.replace(tzinfo=timezone.utc)
+                enforced_at = user.mfa_enforced_at.replace(tzinfo=UTC)
             else:
                 enforced_at = user.mfa_enforced_at
-                
+
             if (now - enforced_at).days > 7:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,

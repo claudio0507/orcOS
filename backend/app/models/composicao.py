@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,12 @@ class TipoComposicao(StrEnum):
 
 
 class Composicao(TenantScopedMixin, Base):
+    """
+    Entidade que representa um insumo ou subcomponente de uma ficha.
+
+    Permite a criação de árvores de composição (BOM - Bill of Materials).
+    Pode referenciar materiais, mão-de-obra, equipamentos ou sub-serviços.
+    """
     __tablename__ = "composicoes"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -68,5 +74,5 @@ class Composicao(TenantScopedMixin, Base):
     )
 
 
-from app.models.tenant import Tenant  # noqa: E402
 from app.models.ficha import Ficha  # noqa: E402
+from app.models.tenant import Tenant  # noqa: E402

@@ -22,7 +22,6 @@ from app.pricing_engine.bdi import (
     compute_price_manual,
 )
 from app.pricing_engine.markup import compute_unit_price
-from app.pricing_engine.rounding import RoundingMode
 from app.schemas.errors import RESPONSES_ACTION, RESPONSES_CRUD_READ, RESPONSES_CRUD_WRITE
 from app.schemas.ficha import (
     BdiClassicoParams,
@@ -57,7 +56,17 @@ async def listar_fichas(
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> list[Ficha]:
-    """Lista fichas do orçamento, ordenadas por `ordem`."""
+    """
+    Lista todas as fichas associadas a um orçamento.
+
+    Args:
+        orcamento_id: ID do orçamento pai.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant para isolamento.
+
+    Returns:
+        Lista de objetos Ficha ordenados pelo campo ordem.
+    """
     await _assert_orcamento_exists(session, tenant_id, orcamento_id)
     result = await session.execute(
         select(Ficha)
@@ -90,7 +99,19 @@ async def criar_ficha(
     tenant_id: TenantIDDep,
     current_user: Usuario = Depends(get_current_user),
 ) -> Ficha:
-    """Cria uma nova ficha vinculada ao orçamento."""
+    """
+    Cria uma nova ficha de serviço ou insumo em um orçamento.
+
+    Args:
+        orcamento_id: ID do orçamento ao qual a ficha pertence.
+        payload: Dados da ficha (descrição, custo, modo de precificação, etc).
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+        current_user: Usuário que está criando a ficha.
+
+    Returns:
+        A ficha criada com o ID gerado.
+    """
     await _assert_orcamento_exists(session, tenant_id, orcamento_id)
     ficha = Ficha(
         tenant_id=tenant_id,
@@ -109,7 +130,7 @@ async def criar_ficha(
     )
     session.add(ficha)
     await session.flush()
-    
+
     await log_audit_action(
         session=session,
         user_id=current_user.id,
@@ -120,7 +141,7 @@ async def criar_ficha(
         old_value=None,
         new_value=payload.model_dump(mode="json"),
     )
-    
+
     await session.commit()
     await session.refresh(ficha)
     return ficha
@@ -143,7 +164,21 @@ async def obter_ficha(
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> Ficha:
-    """Retorna uma ficha pelo ID."""
+    """
+    Recupera os detalhes de uma ficha específica.
+
+    Args:
+        orcamento_id: ID do orçamento.
+        ficha_id: ID da ficha solicitada.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+
+    Returns:
+        O objeto Ficha correspondente.
+
+    Raises:
+        HTTPException: Se a ficha não for encontrada ou não pertencer ao orçamento/tenant.
+    """
     return await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
 
 
@@ -167,7 +202,20 @@ async def atualizar_ficha(
     tenant_id: TenantIDDep,
     current_user: Usuario = Depends(get_current_user),
 ) -> Ficha:
-    """Atualiza campos parciais de uma ficha."""
+    """
+    Atualiza campos específicos de uma ficha existente.
+
+    Args:
+        orcamento_id: ID do orçamento.
+        ficha_id: ID da ficha a ser atualizada.
+        payload: Dados para atualização parcial.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+        current_user: Usuário realizando a atualização.
+
+    Returns:
+        A ficha atualizada.
+    """
     ficha = await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
     old_data = {
         "descricao": ficha.descricao,
@@ -183,7 +231,7 @@ async def atualizar_ficha(
         data["parametros_precificacao"] = data["parametros_precificacao"].model_dump_json()
     for field, value in data.items():
         setattr(ficha, field, value)
-        
+
     await session.flush()
     await log_audit_action(
         session=session,
@@ -215,10 +263,19 @@ async def deletar_ficha(
     tenant_id: TenantIDDep,
     current_user: Usuario = Depends(get_current_user),
 ) -> None:
-    """Deleta uma ficha."""
+    """
+    Remove uma ficha do sistema.
+
+    Args:
+        orcamento_id: ID do orçamento.
+        ficha_id: ID da ficha a ser removida.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+        current_user: Usuário realizando a exclusão.
+    """
     ficha = await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
     old_data = {"descricao": ficha.descricao, "id": str(ficha.id)}
-    
+
     await session.delete(ficha)
     await session.flush()
     await log_audit_action(
@@ -259,30 +316,46 @@ async def calcular_preco(
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> FichaCalcResult:
-    """Executa o pricing_engine para a ficha e persiste o resultado."""
+    """
+    Executa o cálculo de preço unitário da ficha usando o pricing engine.
+
+    Aplica as regras de Markup ou BDI conforme configurado na ficha.
+
+    Args:
+        orcamento_id: ID do orçamento.
+        ficha_id: ID da ficha a ser calculada.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+
+    Returns:
+        FichaCalcResult com o preço final e detalhes do cálculo.
+
+    Raises:
+        HTTPException: Se houver erro de validação nos parâmetros ou custo.
+    """
     ficha = await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
     custo = Decimal(ficha.custo_unitario)
     params = json.loads(ficha.parametros_precificacao) if ficha.parametros_precificacao else {}
 
     try:
         if ficha.tipo_precificacao == TipoPrecificacao.MARKUP:
-            p = MarkupParams(**params)
-            res = compute_unit_price(
+            p_markup = MarkupParams(**params)
+            res_markup = compute_unit_price(
                 unit_cost=custo,
-                tributes=p.tributes,
-                profit=p.profit,
-                indirect=p.indirect,
+                tributes=p_markup.tributes,
+                profit=p_markup.profit,
+                indirect=p_markup.indirect,
             )
             resultado = FichaCalcResult(
                 ficha_id=ficha.id,
-                preco_unitario=str(res.unit_price),
-                divisor=str(res.divisor),
-                is_alert=res.is_alert,
-                detalhes={"total_components": str(res.total_components)},
+                preco_unitario=str(res_markup.unit_price),
+                divisor=str(res_markup.divisor),
+                is_alert=res_markup.is_alert,
+                detalhes={"total_components": str(res_markup.total_components)},
             )
 
         elif ficha.tipo_precificacao == TipoPrecificacao.BDI_MANUAL:
-            p = BdiManualParams(**params)
+            p_manual = BdiManualParams(**params)
             components = [
                 BdiComponent(
                     name=c.name,
@@ -290,31 +363,31 @@ async def calcular_preco(
                     base=ComponentBase(c.base),
                     legal_reference=c.legal_reference,
                 )
-                for c in p.components
+                for c in p_manual.components
             ]
-            res = compute_price_manual(unit_cost=custo, components=components)
+            res_manual = compute_price_manual(unit_cost=custo, components=components)
             resultado = FichaCalcResult(
                 ficha_id=ficha.id,
-                preco_unitario=str(res.unit_price),
-                is_alert=res.is_alert,
-                detalhes={"t_revenue": str(res.t_revenue), "t_cost": str(res.t_cost)},
+                preco_unitario=str(res_manual.unit_price),
+                is_alert=res_manual.is_alert,
+                detalhes={"t_revenue": str(res_manual.t_revenue), "t_cost": str(res_manual.t_cost)},
             )
 
         else:  # BDI_CLASSICO
-            p = BdiClassicoParams(**params)
+            p_classic = BdiClassicoParams(**params)
             inputs = ClassicBdiInputs(
-                administration=p.administration,
-                financial=p.financial,
-                risk=p.risk,
-                profit=p.profit,
-                tributes=p.tributes,
+                administration=p_classic.administration,
+                financial=p_classic.financial,
+                risk=p_classic.risk,
+                profit=p_classic.profit,
+                tributes=p_classic.tributes,
             )
-            res = compute_price_classic(unit_cost=custo, inputs=inputs)
+            res_classic = compute_price_classic(unit_cost=custo, inputs=inputs)
             resultado = FichaCalcResult(
                 ficha_id=ficha.id,
-                preco_unitario=str(res.unit_price),
-                is_alert=res.is_alert,
-                detalhes={"bdi": str(res.bdi)},
+                preco_unitario=str(res_classic.unit_price),
+                is_alert=res_classic.is_alert,
+                detalhes={"bdi": str(res_classic.bdi)},
             )
 
     except Exception as exc:

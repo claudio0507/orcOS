@@ -74,14 +74,22 @@ async def executar_spreading(
     tenant_id: TenantIDDep,
     payload: SpreadingRequest | None = None,
 ) -> SpreadingResponse:
-    """Aplica o rateio de custos fixos (spreading) sobre todas as fichas.
+    """
+    Realiza o rateio proporcional de custos fixos entre todas as fichas do orçamento.
 
-    O algoritmo distribui os custos fixos proporcionalmente ao peso
-    (preço_variável × qty) de cada ficha, preservando a invariante CA-001:
+    Garante a conformidade com a invariante matemática CA-001 de conservação de totais.
 
-        Σ(final_unit_price × qty) == Σ(variable_unit_price × qty) + fixed_total ± R$0.01
+    Args:
+        orcamento_id: ID do orçamento sobre o qual aplicar o rateio.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+        payload: Parâmetros opcionais como override de custo fixo e modo de arredondamento.
 
-    Persiste `preco_unitario_calculado` em cada ficha com o preço final.
+    Returns:
+        SpreadingResponse com os resultados detalhados e status da validação CA-001.
+
+    Raises:
+        HTTPException: Se o orçamento não possuir fichas ou se os cálculos falharem.
     """
     # 1. Buscar orçamento com RLS
     orcamento = await _get_orcamento_or_404(session, tenant_id, orcamento_id)

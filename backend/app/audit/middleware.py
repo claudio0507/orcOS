@@ -1,7 +1,7 @@
 """Middleware / Serviço para registro automático na Trilha de Auditoria."""
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,8 +24,8 @@ async def log_audit_action(
     Grava uma entrada no AuditLog calculando o hash com base no último registro.
     Esta função deve ser chamada dentro da mesma transação da ação principal.
     """
-    now = datetime.now(timezone.utc)
-    
+    now = datetime.now(UTC)
+
     # Busca o último hash global do banco (para manter a chain)
     # Como o sistema pode ter concorrência, o ideal seria um LOCK na tabela,
     # mas para simplificar o MVP usaremos a última entrada por data.
@@ -35,10 +35,10 @@ async def log_audit_action(
         .limit(1)
     )
     last_hash = result.scalar_one_or_none()
-    
+
     old_val_str = json.dumps(old_value, default=str) if old_value else None
     new_val_str = json.dumps(new_value, default=str) if new_value else None
-    
+
     entry_hash = compute_entry_hash(
         timestamp=now,
         user_id=str(user_id) if user_id else None,
@@ -49,7 +49,7 @@ async def log_audit_action(
         new_value=new_val_str,
         prev_hash=last_hash,
     )
-    
+
     audit_log = AuditLog(
         timestamp=now,
         user_id=user_id,
@@ -62,5 +62,5 @@ async def log_audit_action(
         prev_hash=last_hash,
         entry_hash=entry_hash,
     )
-    
+
     session.add(audit_log)

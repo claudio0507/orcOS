@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-
 from app.pricing_engine.rounding import RoundingMode, round_money, round_pct
 
 

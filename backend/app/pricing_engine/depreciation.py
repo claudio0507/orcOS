@@ -37,13 +37,22 @@ def linear_daily(
     useful_life_days: int,
     rounding: RoundingMode = RoundingMode.BANKER,
 ) -> DepreciationResult:
-    """Calcula depreciação linear diária.
+    """
+    Calcula a depreciação linear diária de um ativo.
 
-        depreciacao_diaria = (acquisition - residual) / useful_life_days
+    Fórmula: depreciação = (aquisição - residual) / vida_útil_dias.
+
+    Args:
+        acquisition: Valor de aquisição do ativo.
+        residual: Valor residual ao final da vida útil.
+        useful_life_days: Vida útil estimada em dias.
+        rounding: Modo de arredondamento a ser aplicado.
+
+    Returns:
+        DepreciationResult contendo o valor diário e metadados.
 
     Raises:
-        PricingEngineError: useful_life_days <= 0, residual < 0,
-                            acquisition < 0 ou residual > acquisition.
+        PricingEngineError: Se parâmetros forem negativos ou vida útil for zero.
     """
     if useful_life_days <= 0:
         raise PricingEngineError(

@@ -1,7 +1,6 @@
 """Configurações de ambiente via pydantic-settings."""
 from __future__ import annotations
 
-from pydantic import PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

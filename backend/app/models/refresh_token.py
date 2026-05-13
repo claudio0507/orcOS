@@ -12,6 +12,12 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class RefreshToken(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """
+    Representa um token de atualização para sessões de usuário.
+
+    Permite a renovação do access_token sem nova autenticação por senha.
+    Armazena o hash do token para segurança e suporta revogação.
+    """
     __tablename__ = "refresh_tokens"
 
     user_id: Mapped[uuid.UUID] = mapped_column(

@@ -25,10 +25,28 @@ _DECIMAL_RULE = {
 
 
 def round_money(value: Decimal, mode: RoundingMode = RoundingMode.BANKER) -> Decimal:
-    """Arredonda para 2 casas com o modo informado."""
+    """
+    Arredonda um valor Decimal para 2 casas decimais (precisão monetária).
+
+    Args:
+        value: O valor a ser arredondado.
+        mode: O modo de arredondamento (Banker ou Comercial).
+
+    Returns:
+        O valor arredondado para 2 casas decimais.
+    """
     return quantize_money(value, rounding=_DECIMAL_RULE[mode])
 
 
 def round_pct(value: Decimal, mode: RoundingMode = RoundingMode.BANKER) -> Decimal:
-    """Arredonda percentual para 6 casas."""
+    """
+    Arredonda um valor Decimal para 6 casas decimais (precisão de percentual).
+
+    Args:
+        value: O valor a ser arredondado.
+        mode: O modo de arredondamento.
+
+    Returns:
+        O valor arredondado para 6 casas decimais.
+    """
     return quantize_pct(value, rounding=_DECIMAL_RULE[mode])

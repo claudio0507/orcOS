@@ -1,9 +1,6 @@
 """CA-006: Cálculo do Hash SHA-256 para o Audit Trail."""
 import hashlib
-import json
 from datetime import datetime
-
-from app.audit.models import AuditLog
 
 
 def compute_entry_hash(
@@ -17,10 +14,10 @@ def compute_entry_hash(
     prev_hash: str | None,
 ) -> str:
     """Calcula o SHA-256 da entrada concatenando seus campos."""
-    
+
     # Formatar timestamp sem microsegundos para garantir consistência após resgatar do SQLite
     ts_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    
+
     components = [
         prev_hash or "GENESIS",
         ts_str,
@@ -31,6 +28,6 @@ def compute_entry_hash(
         old_value or "NULL",
         new_value or "NULL",
     ]
-    
+
     raw_data = "|".join(components)
     return hashlib.sha256(raw_data.encode("utf-8")).hexdigest()

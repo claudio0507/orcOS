@@ -1,6 +1,7 @@
 """Funções utilitárias para hashing de senhas e verificação (bcrypt)."""
 import bcrypt
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica se a senha em texto plano corresponde ao hash bcrypt."""
     try:

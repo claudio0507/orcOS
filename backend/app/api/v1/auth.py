@@ -1,6 +1,5 @@
 """Router: Autenticação base (Login, Refresh, Logout)."""
-from datetime import datetime, timedelta, timezone
-import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -27,9 +26,20 @@ async def login(
     session: SessionDep,
 ) -> TokenResponse:
     """
-    Verifica credenciais e retorna access_token + refresh_token.
-    Se o MFA estiver ativado para o usuário, retorna mfa_required=True
-    e um token parcial (válido por 5 mins) que não dá acesso às rotas.
+    Realiza a autenticação de um usuário.
+
+    Verifica as credenciais (email/senha/tenant) e, se bem-sucedido, emite tokens
+    ou exige verificação de MFA.
+
+    Args:
+        payload: Dados de login (email, senha, tenant_id).
+        session: Sessão do banco de dados.
+
+    Returns:
+        TokenResponse com tokens de acesso ou flag de mfa_required.
+
+    Raises:
+        HTTPException: Se as credenciais forem inválidas ou o usuário estiver inativo.
     """
     result = await session.execute(
         select(Usuario).where(
@@ -78,41 +88,55 @@ async def refresh_token(
     payload: RefreshRequest,
     session: SessionDep,
 ) -> TokenResponse:
-    """Rotaciona um refresh_token válido, retornando um novo par de tokens."""
+    """
+    Gera um novo access_token a partir de um refresh_token válido.
+
+    Implementa rotação de refresh tokens (o token antigo é revogado).
+
+    Args:
+        payload: Objeto contendo o refresh_token opaco.
+        session: Sessão do banco de dados.
+
+    Returns:
+        TokenResponse com novos tokens emitidos.
+
+    Raises:
+        HTTPException: Se o token for inválido, expirado ou o usuário for inativo.
+    """
     # Como não decodificamos JWT aqui para o refresh_token opaco, validamos
     # comparando direto com o token_hash armazenado
     # Importante: num cenário real, faríamos um hash (SHA-256) da string antes de buscar
     # mas para simplificar, buscaremos exato se estiver armazenando sem salt extra.
     # Vamos importar hashlib
     import hashlib
-    
+
     token_hash = hashlib.sha256(payload.refresh_token.encode()).hexdigest()
-    
+
     result = await session.execute(
         select(RefreshToken).where(
             RefreshToken.token_hash == token_hash,
             RefreshToken.revoked == False,  # noqa: E712
-            RefreshToken.expires_at > datetime.now(timezone.utc),
+            RefreshToken.expires_at > datetime.now(UTC),
         )
     )
     db_token = result.scalar_one_or_none()
-    
+
     if not db_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token inválido ou expirado",
         )
-        
+
     user = await session.get(Usuario, db_token.user_id)
     if not user or not user.ativo:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário inválido ou inativo",
         )
-        
+
     # Revogar o token antigo (Rotation)
     db_token.revoked = True
-    
+
     return await _issue_tokens(session, user)
 
 
@@ -126,8 +150,13 @@ async def logout(
     current_user: Usuario = Depends(get_current_user),
 ) -> None:
     """
-    Invalida todos os refresh tokens ativos do usuário logado.
-    (O access token client-side deve ser descartado pelo front-end).
+    Encerra a sessão do usuário.
+
+    Revoga todos os refresh tokens ativos vinculados ao usuário logado.
+
+    Args:
+        session: Sessão do banco de dados.
+        current_user: O usuário autenticado solicitando o logout.
     """
     result = await session.execute(
         select(RefreshToken).where(
@@ -138,27 +167,27 @@ async def logout(
     tokens = result.scalars().all()
     for t in tokens:
         t.revoked = True
-        
+
     await session.commit()
 
 
 async def _issue_tokens(session: SessionDep, user: Usuario) -> TokenResponse:
     """Helper para emitir par Access+Refresh, armazenando o Refresh."""
-    import secrets
     import hashlib
-    
+    import secrets
+
     access_token = create_access_token(
         subject=user.id,
         tenant_id=user.tenant_id,
         role=user.role,
         is_partial=False,
     )
-    
+
     raw_refresh = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_refresh.encode()).hexdigest()
-    
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    
+
+    expires_at = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
     db_refresh = RefreshToken(
         user_id=user.id,
         token_hash=token_hash,
@@ -167,7 +196,7 @@ async def _issue_tokens(session: SessionDep, user: Usuario) -> TokenResponse:
     )
     session.add(db_refresh)
     await session.commit()
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=raw_refresh,

@@ -1,9 +1,7 @@
 """Unit tests for decimal_config.py — Decimal configuration."""
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
-
-import pytest
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.pricing_engine.decimal_config import (
     CALCULATION_PRECISION,

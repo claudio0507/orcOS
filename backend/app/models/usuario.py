@@ -19,6 +19,12 @@ class RoleUsuario(StrEnum):
 
 
 class Usuario(TenantScopedMixin, Base):
+    """
+    Entidade que representa um usuário do sistema.
+
+    Os usuários são vinculados a um tenant e possuem papéis (roles) que
+    determinam suas permissões. Inclui suporte a MFA e autenticação.
+    """
     __tablename__ = "usuarios"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -53,5 +59,5 @@ class Usuario(TenantScopedMixin, Base):
     )
 
 
-from app.models.tenant import Tenant  # noqa: E402
 from app.models.orcamento import Orcamento  # noqa: E402
+from app.models.tenant import Tenant  # noqa: E402

@@ -1,14 +1,15 @@
-import pytest
-import pytest_asyncio
 import pyotp
-from httpx import AsyncClient, ASGITransport
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.main import app
+
 from app.auth.dependencies import get_current_user, require_mfa
+from app.auth.password import get_password_hash
 from app.db.session import get_session
+from app.main import app
 from tests.integration.factories.tenant import TenantFactory
 from tests.integration.factories.usuario import UsuarioFactory
-from app.auth.password import get_password_hash
+
 
 @pytest_asyncio.fixture
 async def unmocked_client(session: AsyncSession):
@@ -30,7 +31,7 @@ async def test_mfa_setup_and_verify(unmocked_client: AsyncClient, session: Async
     user = UsuarioFactory(tenant_id=tenant.id, email="mfasetup@ex.com", hashed_password=get_password_hash(password), mfa_enabled=False)
     session.add(user)
     await session.commit()
-    
+
     # 1. Login para pegar token
     resp_login = await unmocked_client.post(
         "/api/v1/auth/login",
@@ -38,7 +39,7 @@ async def test_mfa_setup_and_verify(unmocked_client: AsyncClient, session: Async
         headers={"X-Tenant-ID": str(tenant.id)}
     )
     access_token = resp_login.json()["access_token"]
-    
+
     # 2. Setup MFA
     resp_setup = await unmocked_client.post(
         "/api/v1/auth/mfa/setup",
@@ -46,18 +47,18 @@ async def test_mfa_setup_and_verify(unmocked_client: AsyncClient, session: Async
     )
     assert resp_setup.status_code == 200
     secret = resp_setup.json()["secret"]
-    
+
     # 3. Verify MFA
     totp = pyotp.TOTP(secret)
     code = totp.now()
-    
+
     resp_verify = await unmocked_client.post(
         "/api/v1/auth/mfa/verify",
         headers={"Authorization": f"Bearer {access_token}", "X-Tenant-ID": str(tenant.id)},
         json={"secret": secret, "totp_code": code}
     )
     assert resp_verify.status_code == 200
-    
+
     # Refresh user
     await session.refresh(user)
     assert user.mfa_enabled is True
@@ -68,19 +69,19 @@ async def test_mfa_login_flow(unmocked_client: AsyncClient, session: AsyncSessio
     tenant = TenantFactory()
     session.add(tenant)
     await session.flush()
-    
+
     secret = pyotp.random_base32()
     password = "pwd"
     user = UsuarioFactory(
-        tenant_id=tenant.id, 
-        email="mfalogin@ex.com", 
-        hashed_password=get_password_hash(password), 
+        tenant_id=tenant.id,
+        email="mfalogin@ex.com",
+        hashed_password=get_password_hash(password),
         mfa_enabled=True,
         mfa_secret=secret
     )
     session.add(user)
     await session.commit()
-    
+
     # 1. Login inicial retorna partial_token e mfa_required
     resp_login = await unmocked_client.post(
         "/api/v1/auth/login",
@@ -92,11 +93,11 @@ async def test_mfa_login_flow(unmocked_client: AsyncClient, session: AsyncSessio
     assert data["mfa_required"] is True
     assert data["refresh_token"] is None
     partial_token = data["access_token"]
-    
+
     # 2. Completar login com TOTP
     totp = pyotp.TOTP(secret)
     code = totp.now()
-    
+
     resp_mfa = await unmocked_client.post(
         "/api/v1/auth/mfa/login",
         json={"partial_token": partial_token, "totp_code": code},

@@ -72,16 +72,22 @@ def spread_fixed_costs(
     fixed_total: Decimal,
     rounding: RoundingMode = RoundingMode.BANKER,
 ) -> list[SpreadingResultLine]:
-    """Aplica o spreading proporcional ao peso (preço_variável * qty).
+    """
+    Aplica o rateio (spreading) de custos fixos sobre as linhas do orçamento.
 
-    Garante a invariante:
-        Σ (final_unit_price * quantity)  ==  Σ (variable_unit_price * quantity) + fixed_total
+    O rateio é proporcional ao peso de cada linha (preço_unitário_variável * quantidade).
+    Garante a invariante de conservação: Σ final == Σ variável + fixos.
 
-    com arredondamento monetário. O resíduo eventual é absorvido pela linha de
-    maior peso, marcada com `carries_residue=True`.
+    Args:
+        lines: Lista de linhas do orçamento (SpreadingLine).
+        fixed_total: Valor total de custos fixos a serem rateados.
+        rounding: Modo de arredondamento (Banker ou Comercial).
+
+    Returns:
+        Lista de linhas processadas (SpreadingResultLine) com o fixo alocado.
 
     Raises:
-        SpreadingError: lista vazia, quantity<=0, ou soma de pesos == 0.
+        SpreadingError: Se a lista estiver vazia, se houver quantidade ≤ 0, ou se houver custo fixo mas soma de pesos for zero.
     """
     if not lines:
         raise SpreadingError("Lista de linhas vazia.")
@@ -138,7 +144,7 @@ def spread_fixed_costs(
     target_total_rounded = round_money(target_total, mode=rounding)
     residue = target_total_rounded - sum(rounded_line_totals, Decimal("0"))
 
-    # Aplica resíduo à linha de maior peso.
+    # Aplica resíduo à linha de maior peso para minimizar o impacto percentual no preço final.
     residue_idx = max(range(len(lines)), key=lambda i: weights[i])
     if residue != 0:
         rounded_line_totals[residue_idx] += residue

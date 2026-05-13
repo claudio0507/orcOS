@@ -44,7 +44,19 @@ async def listar_orcamentos(
     limit: int = Query(50, ge=1, le=200, description="Máximo de itens por página."),
     offset: int = Query(0, ge=0, description="Deslocamento para paginação."),
 ) -> OrcamentoList:
-    """Lista orçamentos do tenant com paginação opcional."""
+    """
+    Lista os orçamentos pertencentes ao tenant do usuário.
+
+    Args:
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant (extraído do header).
+        status_filter: Filtro opcional por status do orçamento.
+        limit: Quantidade máxima de itens a retornar.
+        offset: Deslocamento para paginação.
+
+    Returns:
+        OrcamentoList contendo a lista de itens e o total de registros.
+    """
     base_q = select(Orcamento).where(Orcamento.tenant_id == tenant_id)
     if status_filter:
         base_q = base_q.where(Orcamento.status == status_filter)
@@ -76,7 +88,18 @@ async def criar_orcamento(
     tenant_id: TenantIDDep,
     current_user: Usuario = Depends(get_current_user),
 ) -> Orcamento:
-    """Cria novo orçamento para o tenant."""
+    """
+    Cria um novo orçamento de obra ou serviço.
+
+    Args:
+        payload: Dados do orçamento (título, descrição, custo fixo).
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+        current_user: Usuário que está criando o orçamento.
+
+    Returns:
+        O objeto Orcamento criado.
+    """
     orcamento = Orcamento(
         tenant_id=tenant_id,
         titulo=payload.titulo,
@@ -87,7 +110,7 @@ async def criar_orcamento(
     )
     session.add(orcamento)
     await session.flush()
-    
+
     await log_audit_action(
         session=session,
         user_id=current_user.id,
@@ -98,7 +121,7 @@ async def criar_orcamento(
         old_value=None,
         new_value=payload.model_dump(mode="json"),
     )
-    
+
     await session.commit()
     await session.refresh(orcamento)
     return orcamento
@@ -120,7 +143,20 @@ async def obter_orcamento(
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> Orcamento:
-    """Retorna um orçamento pelo ID, filtrado por tenant."""
+    """
+    Recupera um orçamento específico pelo seu ID único.
+
+    Args:
+        orcamento_id: ID do orçamento solicitado.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant para validação de acesso.
+
+    Returns:
+        O objeto Orcamento.
+
+    Raises:
+        HTTPException: Se o orçamento não for encontrado.
+    """
     result = await session.execute(
         select(Orcamento).where(
             Orcamento.id == orcamento_id,
@@ -151,7 +187,19 @@ async def atualizar_orcamento(
     tenant_id: TenantIDDep,
     current_user: Usuario = Depends(get_current_user),
 ) -> Orcamento:
-    """Atualiza campos parciais de um orçamento."""
+    """
+    Atualiza informações de um orçamento existente.
+
+    Args:
+        orcamento_id: ID do orçamento a ser atualizado.
+        payload: Dados para atualização.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+        current_user: Usuário realizando a atualização.
+
+    Returns:
+        O orçamento atualizado.
+    """
     orcamento = await _get_or_404(session, tenant_id, orcamento_id)
     old_data = {"titulo": orcamento.titulo, "status": orcamento.status, "custo_fixo_total": str(orcamento.custo_fixo_total)}
     data = payload.model_dump(exclude_unset=True)
@@ -159,7 +207,7 @@ async def atualizar_orcamento(
         data["custo_fixo_total"] = str(data["custo_fixo_total"])
     for field, value in data.items():
         setattr(orcamento, field, value)
-        
+
     await session.flush()
     await log_audit_action(
         session=session,
@@ -194,7 +242,15 @@ async def deletar_orcamento(
     tenant_id: TenantIDDep,
     current_user: Usuario = Depends(get_current_user),
 ) -> None:
-    """Deleta um orçamento (cascade deleta fichas associadas)."""
+    """
+    Exclui permanentemente um orçamento e seus dados vinculados.
+
+    Args:
+        orcamento_id: ID do orçamento a ser removido.
+        session: Sessão do banco de dados.
+        tenant_id: ID do tenant.
+        current_user: Usuário realizando a exclusão.
+    """
     orcamento = await _get_or_404(session, tenant_id, orcamento_id)
     old_data = {"titulo": orcamento.titulo, "id": str(orcamento.id)}
     await session.delete(orcamento)

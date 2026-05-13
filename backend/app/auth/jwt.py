@@ -1,5 +1,5 @@
 """Configurações e utilitários para JWT (Access e Refresh tokens)."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import jwt
@@ -25,11 +25,11 @@ def create_access_token(
         is_partial: Se True, o token serve apenas para transição MFA.
     """
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
         # Partial tokens para MFA duram apenas 5 minutos
         minutes = 5 if is_partial else settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        expire = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+        expire = datetime.now(UTC) + timedelta(minutes=minutes)
 
     to_encode = {
         "exp": expire,
@@ -37,7 +37,7 @@ def create_access_token(
         "tenant_id": str(tenant_id),
         "role": str(role),
     }
-    
+
     if is_partial:
         to_encode["mfa_pending"] = True
 
