@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push *)",
+      "Bash(python -c ' *)",
+      "Bash(pytest -v --tb=short)",
+      "Bash(pytest --cov=app/pricing_engine --cov-report=term-missing)",
+      "Bash(python -m pytest -v --tb=short)",
+      "Bash(python -m pytest --cov=app.pricing_engine --cov-report=term-missing)",
+      "Bash(python -m pip install -e \".[dev]\" -q)",
+      "Bash(git checkout *)",
+      "Bash(python -m pytest -v --ignore=tests/property/test_spreading_properties.py)",
+      "Bash(python -m pytest --cov=app.pricing_engine --cov-report=term-missing --ignore=tests/property/test_spreading_properties.py)",
+      "Bash(python -m pytest -v)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(python -m pytest tests/integration/test_orcamentos.py -v)",
+      "Bash(git reset *)"
+    ]
+  }
+}

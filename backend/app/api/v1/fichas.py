@@ -20,6 +20,7 @@ from app.pricing_engine.bdi import (
 )
 from app.pricing_engine.markup import compute_unit_price
 from app.pricing_engine.rounding import RoundingMode
+from app.schemas.errors import RESPONSES_ACTION, RESPONSES_CRUD_READ, RESPONSES_CRUD_WRITE
 from app.schemas.ficha import (
     BdiClassicoParams,
     BdiManualParams,
@@ -33,12 +34,23 @@ from app.schemas.ficha import (
 router = APIRouter(prefix="/orcamentos/{orcamento_id}/fichas", tags=["Fichas"])
 
 
-@router.get("", response_model=list[FichaRead])
+@router.get(
+    "",
+    response_model=list[FichaRead],
+    summary="Listar fichas de um orçamento",
+    description=(
+        "Retorna todas as fichas (linhas de serviço/insumo) de um orçamento, "
+        "ordenadas por `ordem`. O orçamento deve pertencer ao tenant."
+    ),
+    response_description="Lista de fichas ordenadas por posição.",
+    responses={**RESPONSES_CRUD_READ},
+)
 async def listar_fichas(
     orcamento_id: uuid.UUID,
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> list[Ficha]:
+    """Lista fichas do orçamento, ordenadas por `ordem`."""
     await _assert_orcamento_exists(session, tenant_id, orcamento_id)
     result = await session.execute(
         select(Ficha)
@@ -48,13 +60,29 @@ async def listar_fichas(
     return list(result.scalars().all())
 
 
-@router.post("", response_model=FichaRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=FichaRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Criar nova ficha",
+    description=(
+        "Adiciona uma nova ficha ao orçamento. A ficha representa uma linha de "
+        "serviço ou insumo com custo unitário e parâmetros de precificação.\n\n"
+        "**Modos de precificação suportados:**\n"
+        "- `markup` — Divisor = 1 − (tributos + lucro + despesas indiretas)\n"
+        "- `bdi_manual` — Componentes arbitrários sobre receita ou custo\n"
+        "- `bdi_classico` — Fórmula DNIT: (1+AC+AF+R)(1+L) / (1−T)"
+    ),
+    response_description="Ficha criada com ID gerado.",
+    responses={**RESPONSES_CRUD_WRITE},
+)
 async def criar_ficha(
     orcamento_id: uuid.UUID,
     payload: FichaCreate,
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> Ficha:
+    """Cria uma nova ficha vinculada ao orçamento."""
     await _assert_orcamento_exists(session, tenant_id, orcamento_id)
     ficha = Ficha(
         tenant_id=tenant_id,
@@ -77,17 +105,39 @@ async def criar_ficha(
     return ficha
 
 
-@router.get("/{ficha_id}", response_model=FichaRead)
+@router.get(
+    "/{ficha_id}",
+    response_model=FichaRead,
+    summary="Obter ficha por ID",
+    description=(
+        "Retorna os detalhes de uma ficha específica. "
+        "Retorna 404 se a ficha, o orçamento ou o tenant não conferem."
+    ),
+    response_description="Detalhes completos da ficha.",
+    responses={**RESPONSES_CRUD_READ},
+)
 async def obter_ficha(
     orcamento_id: uuid.UUID,
     ficha_id: uuid.UUID,
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> Ficha:
+    """Retorna uma ficha pelo ID."""
     return await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
 
 
-@router.patch("/{ficha_id}", response_model=FichaRead)
+@router.patch(
+    "/{ficha_id}",
+    response_model=FichaRead,
+    summary="Atualizar ficha (parcial)",
+    description=(
+        "Atualização parcial (PATCH) de uma ficha. Apenas os campos enviados "
+        "serão atualizados. Permite alterar descrição, quantidade, custo, modo de "
+        "precificação e parâmetros."
+    ),
+    response_description="Ficha atualizada.",
+    responses={**RESPONSES_CRUD_WRITE},
+)
 async def atualizar_ficha(
     orcamento_id: uuid.UUID,
     ficha_id: uuid.UUID,
@@ -95,6 +145,7 @@ async def atualizar_ficha(
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> Ficha:
+    """Atualiza campos parciais de uma ficha."""
     ficha = await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
     data = payload.model_dump(exclude_unset=True)
     for field in ("quantidade", "custo_unitario"):
@@ -109,19 +160,44 @@ async def atualizar_ficha(
     return ficha
 
 
-@router.delete("/{ficha_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{ficha_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Deletar ficha",
+    description="Remove uma ficha do orçamento. Retorna 404 se não encontrada.",
+    responses={**RESPONSES_CRUD_READ},
+)
 async def deletar_ficha(
     orcamento_id: uuid.UUID,
     ficha_id: uuid.UUID,
     session: SessionDep,
     tenant_id: TenantIDDep,
 ) -> None:
+    """Deleta uma ficha."""
     ficha = await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
     await session.delete(ficha)
     await session.commit()
 
 
-@router.post("/{ficha_id}/calcular", response_model=FichaCalcResult)
+@router.post(
+    "/{ficha_id}/calcular",
+    response_model=FichaCalcResult,
+    summary="Calcular preço unitário da ficha",
+    description=(
+        "Executa o **pricing engine** para calcular o preço unitário da ficha "
+        "com base no `custo_unitario` e nos `parametros_precificacao` configurados.\n\n"
+        "O resultado é persistido em `preco_unitario_calculado` (snapshot) e retornado "
+        "com detalhes do cálculo.\n\n"
+        "**Modos suportados:**\n\n"
+        "| Modo | Fórmula |\n"
+        "|------|--------|\n"
+        "| `markup` | `preço = custo / (1 − tributos − lucro − indiretas)` |\n"
+        "| `bdi_manual` | Componentes sobre receita/custo |\n"
+        "| `bdi_classico` | `preço = custo × (1 + BDI)` — fórmula DNIT |"
+    ),
+    response_description="Resultado do cálculo com preço unitário, divisor e detalhes.",
+    responses={**RESPONSES_ACTION},
+)
 async def calcular_preco(
     orcamento_id: uuid.UUID,
     ficha_id: uuid.UUID,
@@ -187,7 +263,7 @@ async def calcular_preco(
             )
 
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
     ficha.preco_unitario_calculado = resultado.preco_unitario
     await session.commit()

@@ -12,6 +12,7 @@ from app.models.ficha import Ficha
 from app.models.orcamento import Orcamento
 from app.pricing_engine.rounding import RoundingMode, round_money
 from app.pricing_engine.spreading import SpreadingLine, spread_fixed_costs
+from app.schemas.errors import RESPONSES_ACTION
 from app.schemas.spreading import (
     SpreadingRequest,
     SpreadingResponse,
@@ -25,7 +26,42 @@ router = APIRouter(prefix="/orcamentos", tags=["Spreading"])
     "/{orcamento_id}/spreading",
     response_model=SpreadingResponse,
     status_code=status.HTTP_200_OK,
-    summary="Executa spreading de custos fixos sobre as fichas do orçamento",
+    summary="Executar spreading (rateio de custos fixos)",
+    description=(
+        "Distribui os custos fixos do orçamento proporcionalmente ao **peso** "
+        "(preço variável × quantidade) de cada ficha.\n\n"
+        "### Algoritmo\n\n"
+        "```\n"
+        "peso_i         = preço_variável_i × qty_i\n"
+        "total_pesos    = Σ peso_i\n"
+        "fixo_alocado_i = fixos_totais × (peso_i / total_pesos)\n"
+        "preço_final_i  = preço_variável_i + (fixo_alocado_i / qty_i)\n"
+        "```\n\n"
+        "### Invariante CA-001 (Conservação de Totais)\n\n"
+        "O endpoint garante a seguinte invariante:\n\n"
+        "> **CA-001:** Σ(preço_final × qty) = Σ(preço_variável × qty) + custos_fixos ± R$0,01\n\n"
+        "A tolerância de R$0,01 decorre exclusivamente do arredondamento monetário "
+        "para 2 casas decimais. O resíduo é absorvido pela linha de maior peso "
+        "(marcada com `carries_residue: true`).\n\n"
+        "### Persistência\n\n"
+        "O `preço_unitario_calculado` de cada ficha é **atualizado** com o preço "
+        "final após spreading. Para reverter, recalcule as fichas individualmente.\n\n"
+        "### Override de Custo Fixo\n\n"
+        "O payload aceita `custo_fixo_override` para simular cenários sem alterar "
+        "o valor persistido no orçamento."
+    ),
+    response_description=(
+        "Resultado do spreading com totais, validação CA-001, e detalhamento por ficha."
+    ),
+    responses={
+        **RESPONSES_ACTION,
+        200: {
+            "description": (
+                "Spreading executado com sucesso. `ca001_validado` indica se a "
+                "invariante de conservação de totais foi satisfeita."
+            ),
+        },
+    },
 )
 async def executar_spreading(
     orcamento_id: uuid.UUID,
@@ -55,7 +91,7 @@ async def executar_spreading(
 
     if not fichas:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Orçamento não possui fichas para spreading.",
         )
 
@@ -95,7 +131,7 @@ async def executar_spreading(
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         )
 
