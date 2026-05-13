@@ -76,7 +76,8 @@ def compute_unit_price(
     )
     total = tributes + profit + indirect
     raw_price = unit_cost / divisor
-    return MarkupResult      tribuotal_components=total,
+    return MarkupResult(
+        total_components=total,
         divisor=divisor,
         unit_price=round_money(raw_price, mode=rounding),
         is_alert=total >= alert,

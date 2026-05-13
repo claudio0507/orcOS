@@ -1,0 +1,16 @@
+﻿import base64, re, tarfile, io, os
+
+os.chdir(r'G:\Meu Drive\orcOS')
+
+parts = [open(f'orcOS-source.tar.gz.b64.part{i}','rb').read() for i in range(5)]
+data = b''.join(parts)
+data_clean = re.sub(rb'[^A-Za-z0-9+/=]', b'', data)
+
+while len(data_clean) % 4 != 0:
+    data_clean = data_clean[:-1]
+
+decoded = base64.b64decode(data_clean)
+
+with tarfile.open(fileobj=io.BytesIO(decoded), mode='r:gz') as tar:
+    tar.extractall('.')
+print('Extraido!')
