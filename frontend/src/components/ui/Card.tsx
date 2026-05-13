@@ -1,22 +1,18 @@
-import { ReactNode } from 'react';
+import React from 'react';
 
 interface CardProps {
-  children: ReactNode;
+  children: React.ReactNode;
   title?: string;
   className?: string;
 }
 
-export function Card({ children, title, className = '' }: CardProps) {
+export const Card: React.FC<CardProps> = ({ children, title, className }) => {
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${className}`}>
-      {title && (
-        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-          <h3 className="font-semibold text-gray-800">{title}</h3>
-        </div>
-      )}
-      <div className="px-6 py-4">
+    <div className={`card ${className || ''}`}>
+      {title && <h3 className="card-title">{title}</h3>}
+      <div className="card-content">
         {children}
       </div>
     </div>
   );
-}
+};

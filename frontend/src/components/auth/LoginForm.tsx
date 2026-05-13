@@ -3,9 +3,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
-  tenant_id: z.string().uuid('ID do Tenant inválido'),
+  email: z.string().email(),
+  senha: z.string().min(6),
 });
 
 type LoginData = z.infer<typeof loginSchema>;
@@ -21,41 +20,14 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <input 
-          {...register('tenant_id')} 
-          placeholder="ID do Tenant (UUID)" 
-          className="border p-2 w-full"
-        />
-        {errors.tenant_id && <span className="text-red-500 text-sm">{errors.tenant_id.message}</span>}
-      </div>
-
-      <div>
-        <input 
-          {...register('email')} 
-          placeholder="Email" 
-          className="border p-2 w-full"
-        />
-        {errors.email && <span className="text-red-500 text-sm">{errors.email.message}</span>}
-      </div>
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input {...register('email')} placeholder="Email" />
+      {errors.email && <span>{errors.email.message}</span>}
       
-      <div>
-        <input 
-          {...register('senha')} 
-          type="password" 
-          placeholder="Senha" 
-          className="border p-2 w-full"
-        />
-        {errors.senha && <span className="text-red-500 text-sm">{errors.senha.message}</span>}
-      </div>
+      <input {...register('senha')} type="password" placeholder="Senha" />
+      {errors.senha && <span>{errors.senha.message}</span>}
       
-      <button 
-        type="submit" 
-        className="bg-blue-500 text-white p-2 rounded w-full hover:bg-blue-600"
-      >
-        Entrar
-      </button>
+      <button type="submit">Entrar</button>
     </form>
   );
 }
