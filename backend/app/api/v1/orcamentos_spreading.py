@@ -4,10 +4,11 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
 from app.api.deps import SessionDep, TenantIDDep
+from app.auth.dependencies import get_current_user, require_mfa
 from app.models.ficha import Ficha
 from app.models.orcamento import Orcamento
 from app.pricing_engine.rounding import RoundingMode, round_money
@@ -19,7 +20,11 @@ from app.schemas.spreading import (
     SpreadingResultLineRead,
 )
 
-router = APIRouter(prefix="/orcamentos", tags=["Spreading"])
+router = APIRouter(
+    prefix="/orcamentos",
+    tags=["Spreading"],
+    dependencies=[Depends(get_current_user), Depends(require_mfa)],
+)
 
 
 @router.post(

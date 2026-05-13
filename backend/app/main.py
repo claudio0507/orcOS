@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api.v1 import fichas, orcamentos, orcamentos_spreading
+from app.api.v1 import admin, admin_audit, auth, auth_mfa, fichas, orcamentos, orcamentos_spreading
 from app.core.config import settings
 
 # ── Metadados dos grupos de tags (exibidos em /docs e /redoc) ────────────
@@ -13,6 +13,18 @@ TAGS_METADATA = [
     {
         "name": "Sistema",
         "description": "Endpoints de infraestrutura: health-check, versão.",
+    },
+    {
+        "name": "Autenticação",
+        "description": "Login JWT, Refresh Tokens e Logout.",
+    },
+    {
+        "name": "Autenticação MFA",
+        "description": "Configuração e Verificação de TOTP (Time-Based One-Time Password).",
+    },
+    {
+        "name": "Administração",
+        "description": "Endpoints restritos para administradores (Auditoria, etc).",
     },
     {
         "name": "Orçamentos",
@@ -85,7 +97,17 @@ proporcionalmente ao peso de cada linha, preservando a invariante:
 - Opção de arredondamento comercial (ROUND_HALF_UP) por endpoint
 """
 
+from contextlib import asynccontextmanager
+from app.audit.job import start_scheduler, stop_scheduler
+
+@asynccontextmanager
+async def lifespan_app(app: FastAPI):
+    start_scheduler()
+    yield
+    stop_scheduler()
+
 app = FastAPI(
+    lifespan=lifespan_app,
     title="orcOS API",
     version="0.1.0",
     summary="Sistema de Orçamentação para Engenharia de Infraestrutura e Sinalização Viária",
@@ -111,6 +133,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(auth_mfa.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
+app.include_router(admin_audit.router, prefix="/api/v1")
 app.include_router(orcamentos.router, prefix="/api/v1")
 app.include_router(fichas.router, prefix="/api/v1")
 app.include_router(orcamentos_spreading.router, prefix="/api/v1")

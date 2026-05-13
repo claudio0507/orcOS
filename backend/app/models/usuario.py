@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +36,11 @@ class Usuario(TenantScopedMixin, Base):
         server_default=RoleUsuario.ORCAMENTISTA,
     )
     ativo: Mapped[bool] = mapped_column(nullable=False, server_default="true")
+
+    # MFA / Segurança (CA-008)
+    mfa_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="false", default=False)
+    mfa_secret: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    mfa_enforced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     tenant: Mapped[Tenant] = relationship(back_populates="usuarios", lazy="raise")
     orcamentos: Mapped[list[Orcamento]] = relationship(

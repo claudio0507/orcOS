@@ -5,12 +5,15 @@ import json
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
 from app.api.deps import SessionDep, TenantIDDep
+from app.audit.middleware import log_audit_action
+from app.auth.dependencies import get_current_user, require_mfa
 from app.models.ficha import Ficha, TipoPrecificacao
 from app.models.orcamento import Orcamento
+from app.models.usuario import Usuario
 from app.pricing_engine.bdi import (
     BdiComponent,
     ClassicBdiInputs,
@@ -31,7 +34,11 @@ from app.schemas.ficha import (
     MarkupParams,
 )
 
-router = APIRouter(prefix="/orcamentos/{orcamento_id}/fichas", tags=["Fichas"])
+router = APIRouter(
+    prefix="/orcamentos/{orcamento_id}/fichas",
+    tags=["Fichas"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(
@@ -81,6 +88,7 @@ async def criar_ficha(
     payload: FichaCreate,
     session: SessionDep,
     tenant_id: TenantIDDep,
+    current_user: Usuario = Depends(get_current_user),
 ) -> Ficha:
     """Cria uma nova ficha vinculada ao orçamento."""
     await _assert_orcamento_exists(session, tenant_id, orcamento_id)
@@ -100,6 +108,19 @@ async def criar_ficha(
         ordem=payload.ordem,
     )
     session.add(ficha)
+    await session.flush()
+    
+    await log_audit_action(
+        session=session,
+        user_id=current_user.id,
+        tenant_id=tenant_id,
+        action="POST",
+        resource_type="Ficha",
+        resource_id=str(ficha.id),
+        old_value=None,
+        new_value=payload.model_dump(mode="json"),
+    )
+    
     await session.commit()
     await session.refresh(ficha)
     return ficha
@@ -144,9 +165,16 @@ async def atualizar_ficha(
     payload: FichaUpdate,
     session: SessionDep,
     tenant_id: TenantIDDep,
+    current_user: Usuario = Depends(get_current_user),
 ) -> Ficha:
     """Atualiza campos parciais de uma ficha."""
     ficha = await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
+    old_data = {
+        "descricao": ficha.descricao,
+        "quantidade": str(ficha.quantidade),
+        "custo_unitario": str(ficha.custo_unitario),
+        "tipo_precificacao": ficha.tipo_precificacao,
+    }
     data = payload.model_dump(exclude_unset=True)
     for field in ("quantidade", "custo_unitario"):
         if field in data and data[field] is not None:
@@ -155,6 +183,18 @@ async def atualizar_ficha(
         data["parametros_precificacao"] = data["parametros_precificacao"].model_dump_json()
     for field, value in data.items():
         setattr(ficha, field, value)
+        
+    await session.flush()
+    await log_audit_action(
+        session=session,
+        user_id=current_user.id,
+        tenant_id=tenant_id,
+        action="PATCH",
+        resource_type="Ficha",
+        resource_id=str(ficha.id),
+        old_value=old_data,
+        new_value=data,
+    )
     await session.commit()
     await session.refresh(ficha)
     return ficha
@@ -164,18 +204,33 @@ async def atualizar_ficha(
     "/{ficha_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Deletar ficha",
-    description="Remove uma ficha do orçamento. Retorna 404 se não encontrada.",
+    description="Remove uma ficha do orçamento. Retorna 404 se não encontrada. Requer MFA ativado.",
     responses={**RESPONSES_CRUD_READ},
+    dependencies=[Depends(require_mfa)],
 )
 async def deletar_ficha(
     orcamento_id: uuid.UUID,
     ficha_id: uuid.UUID,
     session: SessionDep,
     tenant_id: TenantIDDep,
+    current_user: Usuario = Depends(get_current_user),
 ) -> None:
     """Deleta uma ficha."""
     ficha = await _get_ficha_or_404(session, tenant_id, orcamento_id, ficha_id)
+    old_data = {"descricao": ficha.descricao, "id": str(ficha.id)}
+    
     await session.delete(ficha)
+    await session.flush()
+    await log_audit_action(
+        session=session,
+        user_id=current_user.id,
+        tenant_id=tenant_id,
+        action="DELETE",
+        resource_type="Ficha",
+        resource_id=str(ficha.id),
+        old_value=old_data,
+        new_value=None,
+    )
     await session.commit()
 
 

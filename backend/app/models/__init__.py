@@ -4,6 +4,8 @@ from app.models.usuario import Usuario
 from app.models.orcamento import Orcamento, StatusOrcamento
 from app.models.ficha import Ficha, TipoPrecificacao
 from app.models.composicao import Composicao, TipoComposicao
+from app.models.refresh_token import RefreshToken
+from app.audit.models import AuditLog
 
 __all__ = [
     "Tenant",
@@ -14,4 +16,6 @@ __all__ = [
     "TipoPrecificacao",
     "Composicao",
     "TipoComposicao",
+    "RefreshToken",
+    "AuditLog",
 ]

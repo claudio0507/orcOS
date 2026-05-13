@@ -3,15 +3,22 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.api.deps import SessionDep, TenantIDDep
+from app.audit.middleware import log_audit_action
+from app.auth.dependencies import get_current_user, require_mfa
 from app.models.orcamento import Orcamento, StatusOrcamento
+from app.models.usuario import Usuario
 from app.schemas.errors import RESPONSES_CRUD_READ, RESPONSES_CRUD_WRITE
 from app.schemas.orcamento import OrcamentoCreate, OrcamentoList, OrcamentoRead, OrcamentoUpdate
 
-router = APIRouter(prefix="/orcamentos", tags=["Orçamentos"])
+router = APIRouter(
+    prefix="/orcamentos",
+    tags=["Orçamentos"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(
@@ -67,6 +74,7 @@ async def criar_orcamento(
     payload: OrcamentoCreate,
     session: SessionDep,
     tenant_id: TenantIDDep,
+    current_user: Usuario = Depends(get_current_user),
 ) -> Orcamento:
     """Cria novo orçamento para o tenant."""
     orcamento = Orcamento(
@@ -75,8 +83,22 @@ async def criar_orcamento(
         descricao=payload.descricao,
         custo_fixo_total=str(payload.custo_fixo_total),
         status=StatusOrcamento.RASCUNHO,
+        criado_por_id=current_user.id,
     )
     session.add(orcamento)
+    await session.flush()
+    
+    await log_audit_action(
+        session=session,
+        user_id=current_user.id,
+        tenant_id=tenant_id,
+        action="POST",
+        resource_type="Orcamento",
+        resource_id=str(orcamento.id),
+        old_value=None,
+        new_value=payload.model_dump(mode="json"),
+    )
+    
     await session.commit()
     await session.refresh(orcamento)
     return orcamento
@@ -127,14 +149,28 @@ async def atualizar_orcamento(
     payload: OrcamentoUpdate,
     session: SessionDep,
     tenant_id: TenantIDDep,
+    current_user: Usuario = Depends(get_current_user),
 ) -> Orcamento:
     """Atualiza campos parciais de um orçamento."""
     orcamento = await _get_or_404(session, tenant_id, orcamento_id)
+    old_data = {"titulo": orcamento.titulo, "status": orcamento.status, "custo_fixo_total": str(orcamento.custo_fixo_total)}
     data = payload.model_dump(exclude_unset=True)
     if "custo_fixo_total" in data:
         data["custo_fixo_total"] = str(data["custo_fixo_total"])
     for field, value in data.items():
         setattr(orcamento, field, value)
+        
+    await session.flush()
+    await log_audit_action(
+        session=session,
+        user_id=current_user.id,
+        tenant_id=tenant_id,
+        action="PATCH",
+        resource_type="Orcamento",
+        resource_id=str(orcamento.id),
+        old_value=old_data,
+        new_value=data,
+    )
     await session.commit()
     await session.refresh(orcamento)
     return orcamento
@@ -146,18 +182,33 @@ async def atualizar_orcamento(
     summary="Deletar orçamento",
     description=(
         "Remove um orçamento e todas as suas fichas (cascade). "
-        "Retorna 404 se não encontrado ou pertencer a outro tenant."
+        "Retorna 404 se não encontrado ou pertencer a outro tenant. "
+        "Requer MFA ativado."
     ),
     responses={**RESPONSES_CRUD_READ},
+    dependencies=[Depends(require_mfa)],
 )
 async def deletar_orcamento(
     orcamento_id: uuid.UUID,
     session: SessionDep,
     tenant_id: TenantIDDep,
+    current_user: Usuario = Depends(get_current_user),
 ) -> None:
     """Deleta um orçamento (cascade deleta fichas associadas)."""
     orcamento = await _get_or_404(session, tenant_id, orcamento_id)
+    old_data = {"titulo": orcamento.titulo, "id": str(orcamento.id)}
     await session.delete(orcamento)
+    await session.flush()
+    await log_audit_action(
+        session=session,
+        user_id=current_user.id,
+        tenant_id=tenant_id,
+        action="DELETE",
+        resource_type="Orcamento",
+        resource_id=str(orcamento.id),
+        old_value=old_data,
+        new_value=None,
+    )
     await session.commit()
 
 
