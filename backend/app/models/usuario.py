@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +19,12 @@ class RoleUsuario(StrEnum):
 
 
 class Usuario(TenantScopedMixin, Base):
+    """
+    Entidade que representa um usuário do sistema.
+
+    Os usuários são vinculados a um tenant e possuem papéis (roles) que
+    determinam suas permissões. Inclui suporte a MFA e autenticação.
+    """
     __tablename__ = "usuarios"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -36,6 +43,11 @@ class Usuario(TenantScopedMixin, Base):
     )
     ativo: Mapped[bool] = mapped_column(nullable=False, server_default="true")
 
+    # MFA / Segurança (CA-008)
+    mfa_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="false", default=False)
+    mfa_secret: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    mfa_enforced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     tenant: Mapped[Tenant] = relationship(back_populates="usuarios", lazy="raise")
     orcamentos: Mapped[list[Orcamento]] = relationship(
         back_populates="criado_por", lazy="raise"
@@ -47,5 +59,5 @@ class Usuario(TenantScopedMixin, Base):
     )
 
 
-from app.models.tenant import Tenant  # noqa: E402
 from app.models.orcamento import Orcamento  # noqa: E402
+from app.models.tenant import Tenant  # noqa: E402

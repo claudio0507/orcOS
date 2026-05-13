@@ -9,6 +9,12 @@ from app.pricing_engine.rounding import RoundingMode
 
 
 class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """
+    Entidade raiz que representa uma empresa ou organização cliente (SaaS).
+
+    Implementa multi-tenancy isolando dados entre diferentes organizações.
+    Define configurações globais da empresa, como o modo de arredondamento.
+    """
     __tablename__ = "tenants"
 
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -27,5 +33,5 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     orcamentos: Mapped[list[Orcamento]] = relationship(back_populates="tenant", lazy="raise")
 
 
-from app.models.usuario import Usuario  # noqa: E402
 from app.models.orcamento import Orcamento  # noqa: E402
+from app.models.usuario import Usuario  # noqa: E402

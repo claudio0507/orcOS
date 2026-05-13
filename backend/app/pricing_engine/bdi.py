@@ -92,13 +92,23 @@ def compute_price_manual(
     alert: Decimal = DEFAULT_BDI_ALERT,
     rounding: RoundingMode = RoundingMode.BANKER,
 ) -> ManualScenarioResult:
-    """Modo A — Manual da Empresa.
+    """
+    Calcula o preço unitário usando o Modo A (Manual da Empresa).
 
-    Soma componentes por base e aplica:
-        preço = custo * (1 + T_custo) / (1 - T_fat)
+    Aplica a fórmula: preço = custo * (1 + T_custo) / (1 - T_fat).
+
+    Args:
+        unit_cost: Custo unitário direto.
+        components: Lista de componentes (tributos, lucro, etc).
+        guard: Limite máximo para a soma de componentes sobre faturamento.
+        alert: Limite para disparar flag de alerta.
+        rounding: Modo de arredondamento a ser aplicado.
+
+    Returns:
+        ManualScenarioResult contendo o preço calculado e metadados.
 
     Raises:
-        BdiGuardError: T_fat >= guard.
+        BdiGuardError: Se a soma dos componentes sobre faturamento atingir o guard.
     """
     t_rev = sum((c.percent for c in components if c.base is ComponentBase.REVENUE), Decimal("0"))
     t_cost = sum((c.percent for c in components if c.base is ComponentBase.COST), Decimal("0"))
@@ -165,13 +175,23 @@ def compute_price_classic(
     alert: Decimal = DEFAULT_BDI_ALERT,
     rounding: RoundingMode = RoundingMode.BANKER,
 ) -> ClassicScenarioResult:
-    """Modo B — BDI Clássico (TCU).
+    """
+    Calcula o preço unitário usando o Modo B (Clássico TCU).
 
-    BDI = ((1 + AC + DF + R) * (1 + L)) / (1 - T) - 1
-    preço = custo * (1 + BDI)
+    Aplica a fórmula: BDI = ((1 + AC + DF + R) * (1 + L)) / (1 - T) - 1.
+
+    Args:
+        unit_cost: Custo unitário direto.
+        inputs: Parâmetros AC, DF, R, L e T.
+        guard: Limite máximo para tributos (T).
+        alert: Limite para disparar flag de alerta.
+        rounding: Modo de arredondamento a ser aplicado.
+
+    Returns:
+        ClassicScenarioResult contendo o BDI e o preço final.
 
     Raises:
-        BdiGuardError: T >= guard.
+        BdiGuardError: Se os tributos (T) atingirem o guard.
     """
     t = inputs.tributes
     if t >= guard:

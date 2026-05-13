@@ -1,7 +1,6 @@
 """Configurações de ambiente via pydantic-settings."""
 from __future__ import annotations
 
-from pydantic import PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +15,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    MFA_ISSUER_NAME: str = "orcOS"
 
     # App
     APP_ENV: str = "development"

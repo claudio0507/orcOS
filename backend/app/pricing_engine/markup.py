@@ -42,10 +42,22 @@ def compute_markup_divisor(
     indirect: Decimal,
     guard: Decimal = DEFAULT_GUARD,
 ) -> Decimal:
-    """Calcula o divisor `1 - (T + L + D)` aplicando guards.
+    """
+    Calcula o divisor de markup 1 - (T + L + D).
+
+    Aplica limites de segurança (guards) para evitar margens negativas ou excessivas.
+
+    Args:
+        tributes: Tributos sobre o faturamento (T).
+        profit: Margem de lucro desejada (L).
+        indirect: Despesas indiretas sobre o faturamento (D).
+        guard: Limite máximo para a soma dos componentes.
+
+    Returns:
+        O divisor calculado para ser usado no cálculo do preço.
 
     Raises:
-        MarkupGuardError: se T + L + D >= guard (denominador resultante <= (1-guard)).
+        MarkupGuardError: Se a soma T + L + D ultrapassar o limite guard.
     """
     total = tributes + profit + indirect
     if total >= guard:
@@ -66,10 +78,20 @@ def compute_unit_price(
     alert: Decimal = DEFAULT_ALERT,
     rounding: RoundingMode = RoundingMode.BANKER,
 ) -> MarkupResult:
-    """Aplica markup divisor sobre o custo unitário.
+    """
+    Calcula o preço unitário aplicando o markup divisor sobre o custo.
 
-    Retorna estrutura com divisor, preço final arredondado e flag de alerta
-    (70% ≤ T+L+D < 95% por padrão).
+    Args:
+        unit_cost: Custo unitário direto.
+        tributes: Tributos sobre o faturamento.
+        profit: Margem de lucro desejada.
+        indirect: Despesas indiretas sobre o faturamento.
+        guard: Limite máximo para a soma dos componentes.
+        alert: Limite para disparar flag de alerta.
+        rounding: Modo de arredondamento a ser aplicado.
+
+    Returns:
+        MarkupResult contendo o divisor, o preço calculado e flag de alerta.
     """
     divisor = compute_markup_divisor(
         tributes=tributes, profit=profit, indirect=indirect, guard=guard

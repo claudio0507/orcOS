@@ -1,0 +1,45 @@
+1. CA-001 (Cálculo correto): dado um orçamento com 3 linhas variáveis e R$ 10.000 de fixos, a soma de preço_unit_final × qty deve igualar Σ preço_variável × qty + 10.000 com tolerância ≤ R$ 0,01.
+2. CA-002 (Markup guard): tentar gravar BDI com T + L + D ≥ 95% retorna 422 com mensagem "Soma de tributos, lucro e despesas excede o limite seguro".
+3. CA-003 (Ciclo BOM): componente A → B → A é rejeitado com 422 e path do ciclo.
+4. CA-004 (Snapshot): orçamento emitido em 2026-03-01 referenciando ficha vSafra-2025 mantém todos os valores mesmo após edição da ficha em 2026-04-01.
+5. CA-005 (Multi-tenant isolation): usuário do Tenant A consultando endpoint com ID de recurso do Tenant B recebe 404 (não 403, para não vazar existência).
+6. CA-006 (Audit chain): adulteração manual de um registro no audit log é detectada pelo job diário em ≤ 24h e dispara alerta.
+7. CA-007 (Offline): criar rascunho offline, fechar laptop, abrir online — rascunho sincroniza sem perda; conflito gera flag visível.
+8. CA-008 (MFA): L1/L2 sem MFA configurado não consegue login após período de carência de 7 dias.
+9. CA-009 (Performance): geração de orçamento com 200 linhas e spreading completa em < 2s p95.
+10. CA-010 (Acessibilidade): auditoria axe-core retorna zero violações de nível AA nas telas críticas.
+
+---
+
+## 4. Critical Files / Paths a Criar (referência futura para implementação)
+
+> *Não criados nesta fase — apenas referência arquitetural.*
+
+- backend/app/pricing_engine/ — módulo isolado, Decimal-only, 100% coberto.
+  - markup.py, bdi.py, spreading.py, depreciation.py, bom_dag.py
+- backend/app/tenancy/ — RLS policies, middleware de tenant.
+- backend/app/audit/ — hash chain, validação periódica.
+- backend/app/auth/ — OAuth2, MFA TOTP, refresh rotation.
+- frontend/src/offline/ — Workbox config, sync queue (Dexie).
+- infra/k8s/ — Helm chart, secrets via Vault Agent Injector.
+- tests/property/ — Hypothesis strategies para invariantes financeiras.
+
+---
+
+## 5. Verificação / Validação
+
+Como confirmar que esta reescrita atende ao pedido:
+
+1. Comparar lacunas: cada item das tabelas de seção 1 (F1-F14, S1-S15, A1-A9, U1-U6, M1-M7) deve ter resposta na seção 3.
+2. Revisar fluxograma: todos os blocos do Excalidraw (7 BDs, 4 Fichas, Composição com 4 linhas, Total) estão refletidos em entidades e módulos (seções 3.4 e 3.6).
+3. Validar premissas confirmadas:
+   - Stack mantida e evoluída ✓ (seção 3.3).
+   - Multi-tenant desde o início ✓ (seções 3.2, 3.4, 3.8).
+   - Detalhamento técnico das fórmulas ✓ (seção 3.5).
+   - Offline parcial ✓ (seção 3.7.3).
+4. Aprovação esperada: o usuário lê este documento e pode (a) aprovar para iniciar a implementação, (b) pedir ajustes pontuais, (c) priorizar diferente o roadmap.
+
+> Nenhum código foi criado. Próximo passo, se aprovado: gerar repositório esqueleto (monorepo backend/frontend/infra) e iniciar MVP pela seção pricing_engine com TDD.
+
+
+esse é projeto completo desse sistema. salve ele como sua biblia para acompanharmos os andamento

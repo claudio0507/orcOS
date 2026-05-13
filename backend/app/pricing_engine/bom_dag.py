@@ -33,15 +33,26 @@ class BomGraph:
     # ------------------------------------------------------------------
 
     def add_node(self, node: Hashable) -> None:
-        """Garante a existência do nó no grafo."""
+        """
+        Garante a existência do nó no grafo.
+
+        Args:
+            node: Identificador do componente.
+        """
         self._adj.setdefault(node, set())
 
     def add_edge(self, parent: Hashable, child: Hashable) -> None:
-        """Adiciona aresta parent→child.
+        """
+        Adiciona uma aresta direcionada entre pai e filho, representando dependência.
+
+        Verifica se a inclusão da aresta criaria um ciclo no grafo.
+
+        Args:
+            parent: Identificador do componente pai.
+            child: Identificador do componente filho (insumo).
 
         Raises:
-            CycleError: se a aresta cria ciclo. O grafo permanece consistente:
-                        a aresta não é gravada quando lança.
+            CycleError: Se a aresta criar um ciclo de dependência.
         """
         if parent == child:
             raise CycleError(path=[str(parent), str(child)])
@@ -61,7 +72,13 @@ class BomGraph:
         self._adj[parent].add(child)
 
     def add_edges(self, parent: Hashable, children: Iterable[Hashable]) -> None:
-        """Adiciona múltiplas arestas a partir do mesmo pai (atômico-por-aresta)."""
+        """
+        Adiciona múltiplas arestas a partir de um mesmo nó pai.
+
+        Args:
+            parent: Identificador do componente pai.
+            children: Iterável de identificadores de componentes filhos.
+        """
         for child in children:
             self.add_edge(parent, child)
 
@@ -76,7 +93,14 @@ class BomGraph:
         return frozenset(self._adj)
 
     def has_cycle(self) -> bool:
-        """Verifica se o grafo inteiro contém algum ciclo (DFS com coloração)."""
+        """
+        Verifica se o grafo inteiro contém algum ciclo.
+
+        Utiliza algoritmo de busca em profundidade (DFS) com coloração de nós.
+
+        Returns:
+            True se houver ciclo, False caso contrário.
+        """
         white, gray, black = 0, 1, 2
         color: dict[Hashable, int] = dict.fromkeys(self._adj, white)
 

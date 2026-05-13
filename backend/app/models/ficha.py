@@ -18,6 +18,13 @@ class TipoPrecificacao(StrEnum):
 
 
 class Ficha(TenantScopedMixin, Base):
+    """
+    Entidade que representa um item de linha em um orçamento.
+
+    Uma ficha pode ser um serviço complexo ou um insumo simples.
+    Contém as regras de precificação individuais e o resultado do
+    cálculo de preço unitário final.
+    """
     __tablename__ = "fichas"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -56,6 +63,6 @@ class Ficha(TenantScopedMixin, Base):
     )
 
 
-from app.models.tenant import Tenant  # noqa: E402
-from app.models.orcamento import Orcamento  # noqa: E402
 from app.models.composicao import Composicao  # noqa: E402
+from app.models.orcamento import Orcamento  # noqa: E402
+from app.models.tenant import Tenant  # noqa: E402

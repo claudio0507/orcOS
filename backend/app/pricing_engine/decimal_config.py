@@ -20,9 +20,14 @@ PCT_QUANT: Final[Decimal] = Decimal("0.000001")
 
 
 def money(value: str | int | float | Decimal) -> Decimal:
-    """Build a Decimal from a value without quantizing.
+    """
+    Cria um objeto Decimal a partir de um valor de entrada sem quantização.
 
-    Uses str() to avoid binary-float artifacts (Decimal(0.1) != Decimal('0.1')).
+    Args:
+        value: Valor numérico ou string.
+
+    Returns:
+        Objeto Decimal correspondente.
     """
     if isinstance(value, Decimal):
         return value
@@ -30,17 +35,43 @@ def money(value: str | int | float | Decimal) -> Decimal:
 
 
 def pct(value: str | int | float | Decimal) -> Decimal:
-    """Build a percentage Decimal in fractional form (0.15 == 15%)."""
+    """
+    Cria um objeto Decimal representando um percentual em forma fracionária.
+
+    Args:
+        value: Valor numérico ou string (ex: "0.15" para 15%).
+
+    Returns:
+        Objeto Decimal correspondente.
+    """
     if isinstance(value, Decimal):
         return value
     return Decimal(str(value))
 
 
 def quantize_money(value: Decimal, rounding: str) -> Decimal:
-    """Quantize a Decimal to monetary precision (2 places) with given rounding mode."""
+    """
+    Arredonda um valor Decimal para precisão monetária (2 casas decimais).
+
+    Args:
+        value: O valor a ser arredondado.
+        rounding: A regra de arredondamento da biblioteca decimal (ex: ROUND_HALF_EVEN).
+
+    Returns:
+        Valor quantizado para 2 casas decimais.
+    """
     return value.quantize(MONEY_QUANT, rounding=rounding)
 
 
 def quantize_pct(value: Decimal, rounding: str) -> Decimal:
-    """Quantize a Decimal to percentage precision (6 places)."""
+    """
+    Arredonda um valor Decimal para precisão de percentual (6 casas decimais).
+
+    Args:
+        value: O valor a ser arredondado.
+        rounding: A regra de arredondamento da biblioteca decimal.
+
+    Returns:
+        Valor quantizado para 6 casas decimais.
+    """
     return value.quantize(PCT_QUANT, rounding=rounding)

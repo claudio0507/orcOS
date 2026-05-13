@@ -5,6 +5,8 @@ Para rodar contra PostgreSQL real, exporte DATABASE_TEST_URL:
 """
 from __future__ import annotations
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -41,12 +43,29 @@ async def session(engine):
 
 @pytest_asyncio.fixture
 async def client(session: AsyncSession):
-    """AsyncClient com override da sessão de banco."""
+    """AsyncClient com override da sessão de banco e bypass de auth."""
+    from app.auth.dependencies import get_current_user, require_mfa
+    from app.models.usuario import RoleUsuario, Usuario
 
     async def _override_session():
         yield session
 
+    async def _mock_current_user():
+        return Usuario(
+            id=uuid.uuid4(),
+            tenant_id=uuid.uuid4(),
+            email="test@example.com",
+            nome="Test User",
+            hashed_password="hash",
+            role=RoleUsuario.ADMIN,
+            ativo=True,
+            mfa_enabled=True,
+        )
+
     app.dependency_overrides[get_session] = _override_session
+    app.dependency_overrides[get_current_user] = _mock_current_user
+    app.dependency_overrides[require_mfa] = _mock_current_user
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -57,15 +76,31 @@ async def client(session: AsyncSession):
 
 @pytest.fixture
 def tenant_headers(session) -> dict[str, str]:
-    """Helper que retorna headers com X-Tenant-ID de um tenant criado."""
+    """Helper que retorna headers com X-Tenant-ID e Authorization Bearer de um tenant/usuário criado."""
     import asyncio
+
+    from app.auth.jwt import create_access_token
     from tests.integration.factories.tenant import TenantFactory
-    TenantFactory._meta.sqlalchemy_session = session
+    from tests.integration.factories.usuario import UsuarioFactory
 
     async def _create():
         tenant = TenantFactory()
+        session.add(tenant)
         await session.flush()
-        return tenant
 
-    tenant = asyncio.get_event_loop().run_until_complete(_create())
-    return {"X-Tenant-ID": str(tenant.id)}
+        user = UsuarioFactory(tenant_id=tenant.id)
+        session.add(user)
+        await session.flush()
+
+        return tenant, user
+
+    tenant, user = asyncio.get_event_loop().run_until_complete(_create())
+    token = create_access_token(
+        subject=user.id,
+        tenant_id=tenant.id,
+        role=user.role,
+    )
+    return {
+        "X-Tenant-ID": str(tenant.id),
+        "Authorization": f"Bearer {token}",
+    }
