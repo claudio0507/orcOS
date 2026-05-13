@@ -18,6 +18,9 @@ api.interceptors.request.use((config) => {
   
   if (tenantId) {
     config.headers['X-Tenant-ID'] = tenantId;
+  } else {
+    // Fallback temporário para desenvolvimento/demo
+    config.headers['X-Tenant-ID'] = '00000000-0000-0000-0000-000000000000';
   }
   
   return config;

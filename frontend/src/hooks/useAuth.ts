@@ -20,6 +20,7 @@ export function useAuth() {
 
       if (response.data.access_token) {
         localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('refresh_token', response.data.refresh_token || '');
         localStorage.setItem('tenant_id', tenant_id);
         navigate('/dashboard');
       }
@@ -34,6 +35,7 @@ export function useAuth() {
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('tenant_id');
     navigate('/login');
   }, [navigate]);
