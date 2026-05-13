@@ -4,47 +4,44 @@ Plataforma multi-tenant de orçamentação para serviços de sinalização viár
 
 ## Estado atual
 
-Esta entrega corresponde ao **scaffold inicial + módulo `pricing_engine`** implementado com TDD. O motor matemático cobre os conceitos formalizados no PRD v2.0:
+Esta entrega corresponde ao **MVP Funcional**, incluindo:
 
-- Markup divisor com guards de segurança
-- BDI em **dois modos** coexistentes (Manual da Empresa + Clássico TCU)
-- Spreading de custos fixos com invariante de conservação (testado por Hypothesis)
-- Depreciação linear de ferramental/EPI/frota
-- Detecção de ciclos no BOM via DFS
-
-API HTTP, persistência, auth, frontend e infra completos serão materializados em iterações subsequentes do MVP.
+- **Pricing Engine**: Motor matemático robusto com Markup, BDI (Manual/Clássico), Spreading e Depreciação.
+- **Backend API**: FastAPI com persistência em PostgreSQL (via SQLAlchemy), autenticação JWT e suporte a MFA.
+- **Frontend Scaffold**: React + Vite + TypeScript com estrutura de componentes, roteamento e integração de tipos.
+- **E2E Testing**: Suíte de testes automatizados para o fluxo principal de orçamento.
+- **Infraestrutura**: Docker Compose e scripts de deployment local/staging.
 
 ## Estrutura
 
 ```
 orcOS/
-├── backend/                FastAPI + SQLAlchemy 2 + Pydantic v2 (Python 3.11+)
-│   ├── app/
-│   │   └── pricing_engine/ Motor de cálculo financeiro (Decimal-only)
-│   └── tests/
-│       ├── unit/           Testes unitários determinísticos
-│       └── property/       Testes property-based (Hypothesis)
-├── frontend/               Placeholder Vite + React + TS (próxima iteração)
-├── infra/                  Dockerfile, docker-compose, K8s helm (próxima iteração)
-└── docs/                   PRD v2.0 e documentação técnica
+├── backend/                FastAPI + SQLAlchemy 2 + Pydantic v2
+│   ├── app/                Coração da aplicação (api, models, schemas, services)
+│   │   └── pricing_engine/ Motor de cálculo financeiro
+│   └── tests/              Unitários, Property-based e E2E
+├── frontend/               React + Vite + TS (Scaffold inicial)
+├── infra/                  Dockerfile, docker-compose, scripts de deploy
+└── docs/                   Documentação técnica e PRD
 ```
 
-## Quick start (backend)
+## Quick Start
 
+### Backend
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest                      # roda todos os testes
-pytest --cov=app/pricing_engine --cov-report=term-missing
-ruff check .
-mypy app
+pytest                      # Roda todos os testes (Unit + E2E)
 ```
 
-## Conceitos matemáticos do motor
-
-Ver `docs/PRICING_ENGINE.md` (gerado nesta iteração) para a especificação formal com fórmulas, guards e invariantes property-tested.
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ## Branch de desenvolvimento
 
-Todas as mudanças desta iteração vão para `claude/project-analysis-improvements-rqi2e`.
+Todas as mudanças desta iteração estão em `claude/project-analysis-improvements-rqi2e`.
