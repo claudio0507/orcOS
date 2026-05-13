@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import orcamentos, fichas
+from app.api.v1 import fichas, orcamentos, orcamentos_spreading
 from app.core.config import settings
 
 app = FastAPI(
@@ -25,6 +25,7 @@ app.add_middleware(
 
 app.include_router(orcamentos.router, prefix="/api/v1")
 app.include_router(fichas.router, prefix="/api/v1")
+app.include_router(orcamentos_spreading.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["Sistema"])
