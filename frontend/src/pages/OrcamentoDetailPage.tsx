@@ -1,30 +1,106 @@
 // src/pages/OrcamentoDetailPage.tsx
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { FichaForm } from '../components/ui/FichaForm';
+import { SpreadingResultTable } from '../components/ui/SpreadingResultTable';
 import { StatusBadge } from '../components/ui/StatusBadge';
-import { useDeleteOrcamento, useOrcamento } from '../hooks/useApi';
+import {
+  useCalcularFicha,
+  useDeleteFicha,
+  useDeleteOrcamento,
+  useFichas,
+  useOrcamento,
+  useSpreading,
+} from '../hooks/useApi';
+import type { Ficha, SpreadingResponse } from '../types';
 import { formatCurrency, formatDateLong } from '../utils/format';
 
 export function OrcamentoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  // orcamento
   const { data, isLoading, error } = useOrcamento(id);
   const deleteMutation = useDeleteOrcamento();
-  const [showDelete, setShowDelete] = useState(false);
+  const [showDeleteOrcamento, setShowDeleteOrcamento] = useState(false);
 
-  async function handleDelete() {
+  // fichas
+  const { data: fichas = [], isLoading: fichasLoading } = useFichas(id);
+  const calcularFicha = useCalcularFicha();
+  const deleteFicha = useDeleteFicha();
+  const spreading = useSpreading();
+
+  // ui state
+  const [openFormId, setOpenFormId] = useState<string | null>(null);
+  const [deleteFichaId, setDeleteFichaId] = useState<string | null>(null);
+  const [spreadingResult, setSpreadingResult] = useState<SpreadingResponse | null>(null);
+
+  // ── Handlers orcamento ──────────────────────────────────────────
+  async function handleDeleteOrcamento() {
     try {
       await deleteMutation.mutateAsync(id!);
       toast.success('Orçamento excluído.');
       navigate('/orcamentos');
     } catch {
-      // error toast already shown by useDeleteOrcamento onError
+      // error toast shown by mutation
     }
   }
 
+  // ── Handlers fichas ─────────────────────────────────────────────
+  function openEditForm(fichaId: string) {
+    setOpenFormId(openFormId === fichaId ? null : fichaId);
+  }
+
+  function openNewForm() {
+    setOpenFormId(openFormId === 'new' ? null : 'new');
+  }
+
+  async function handleCalcular(fichaId: string) {
+    try {
+      const result = await calcularFicha.mutateAsync({ orcamentoId: id!, fichaId });
+      toast.success(`Preço calculado: ${formatCurrency(result.preco_unitario)}`);
+    } catch {
+      // error toast shown by mutation
+    }
+  }
+
+  async function handleDeleteFicha() {
+    if (!deleteFichaId) return;
+    try {
+      await deleteFicha.mutateAsync({ orcamentoId: id!, fichaId: deleteFichaId });
+      toast.success('Ficha excluída.');
+    } catch {
+      // error toast shown by mutation
+    } finally {
+      setDeleteFichaId(null);
+    }
+  }
+
+  async function handleSpreading() {
+    try {
+      const result = await spreading.mutateAsync(id!);
+      setSpreadingResult(result);
+      toast.success(`Spreading aplicado! Total: ${formatCurrency(result.total_final)}`);
+    } catch {
+      // error toast shown by mutation
+    }
+  }
+
+  function fichaToDefaultValues(ficha: Ficha) {
+    return {
+      descricao:         ficha.descricao,
+      unidade:           ficha.unidade,
+      quantidade:        ficha.quantidade,
+      custo_unitario:    ficha.custo_unitario,
+      tipo_precificacao: ficha.tipo_precificacao as 'markup' | 'bdi_manual' | 'bdi_classico',
+      ordem:             ficha.ordem,
+    };
+  }
+
+  // ── Loading / Error states ──────────────────────────────────────
   if (isLoading) {
     return (
       <div className="loading-center">
@@ -44,8 +120,10 @@ export function OrcamentoDetailPage() {
     );
   }
 
+  // ── Render ──────────────────────────────────────────────────────
   return (
     <div>
+      {/* ── Cabeçalho ── */}
       <div className="page-header">
         <div>
           <Link to="/orcamentos" className="muted" style={{ fontSize: '0.875rem' }}>
@@ -59,13 +137,22 @@ export function OrcamentoDetailPage() {
           <Button variant="outline" onClick={() => navigate(`/orcamentos/${id}/editar`)}>
             Editar
           </Button>
-          <Button variant="outline" onClick={() => setShowDelete(true)}>
+          <Button variant="outline" onClick={() => setShowDeleteOrcamento(true)}>
             Excluir
           </Button>
         </div>
       </div>
 
-      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.5rem', marginBottom: '1.5rem' }}>
+      {/* ── Detalhes do orçamento ── */}
+      <div
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+        }}
+      >
         <div className="detail-grid">
           <div className="detail-field">
             <label>Status</label>
@@ -92,21 +179,197 @@ export function OrcamentoDetailPage() {
         </div>
       </div>
 
-      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.5rem' }}>
-        <p className="detail-section-title">Fichas</p>
-        <p className="muted" style={{ fontSize: '0.875rem' }}>
-          Gerenciamento de fichas disponível na Fase 6.
-        </p>
+      {/* ── Seção Fichas ── */}
+      <div
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          padding: '1.5rem',
+        }}
+      >
+        <div className="fichas-header">
+          <h2>Fichas</h2>
+          <Button size="sm" onClick={openNewForm}>
+            {openFormId === 'new' ? '✕ Fechar' : '+ Nova ficha'}
+          </Button>
+        </div>
+
+        {/* Form de criação */}
+        {openFormId === 'new' && (
+          <FichaForm
+            orcamentoId={id!}
+            onSuccess={() => {
+              setOpenFormId(null);
+              toast.success('Ficha criada!');
+            }}
+            onCancel={() => setOpenFormId(null)}
+          />
+        )}
+
+        {/* Loading fichas */}
+        {fichasLoading && (
+          <div className="loading-center" style={{ minHeight: '6rem' }}>
+            <span className="spinner" />
+          </div>
+        )}
+
+        {/* Estado vazio */}
+        {!fichasLoading && fichas.length === 0 && (
+          <div className="empty-state" style={{ minHeight: '6rem' }}>
+            <p>Nenhuma ficha cadastrada.</p>
+            {openFormId !== 'new' && (
+              <button
+                type="button"
+                onClick={openNewForm}
+                style={{
+                  marginTop: '0.5rem',
+                  color: 'var(--primary)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                }}
+              >
+                + Adicionar primeira ficha
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Tabela normal ou resultado de spreading */}
+        {!fichasLoading && fichas.length > 0 && (
+          <>
+            {spreadingResult ? (
+              <SpreadingResultTable
+                result={spreadingResult}
+                onClear={() => setSpreadingResult(null)}
+              />
+            ) : (
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Descrição</th>
+                      <th>Unidade</th>
+                      <th>Qtd</th>
+                      <th>Custo unit. (R$)</th>
+                      <th>Preço calc. (R$)</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fichas.map((ficha) => (
+                      <Fragment key={ficha.id}>
+                        <tr>
+                          <td>{ficha.descricao}</td>
+                          <td>{ficha.unidade}</td>
+                          <td>{ficha.quantidade}</td>
+                          <td>{formatCurrency(ficha.custo_unitario)}</td>
+                          <td>
+                            {ficha.preco_unitario_calculado
+                              ? formatCurrency(ficha.preco_unitario_calculado)
+                              : <span className="muted">—</span>}
+                          </td>
+                          <td>
+                            <div className="table-actions">
+                              <button
+                                className="action-btn"
+                                onClick={() => handleCalcular(ficha.id)}
+                                disabled={calcularFicha.isPending}
+                                title="Calcular preço unitário"
+                              >
+                                Calcular
+                              </button>
+                              <button
+                                className="action-btn"
+                                onClick={() => openEditForm(ficha.id)}
+                                title="Editar ficha"
+                              >
+                                {openFormId === ficha.id ? 'Fechar' : 'Editar'}
+                              </button>
+                              <button
+                                className="action-btn"
+                                onClick={() => setDeleteFichaId(ficha.id)}
+                                title="Excluir ficha"
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {openFormId === ficha.id && (
+                          <tr className="ficha-inline-form-row">
+                            <td colSpan={6}>
+                              <FichaForm
+                                orcamentoId={id!}
+                                fichaId={ficha.id}
+                                defaultValues={fichaToDefaultValues(ficha)}
+                                onSuccess={() => {
+                                  setOpenFormId(null);
+                                  toast.success('Ficha atualizada!');
+                                }}
+                                onCancel={() => setOpenFormId(null)}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Rodapé: custo fixo + spreading */}
+            <div
+              style={{
+                marginTop: '1.25rem',
+                paddingTop: '1rem',
+                borderTop: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                Custo fixo total do orçamento:{' '}
+                <strong style={{ color: 'var(--foreground)' }}>
+                  {formatCurrency(data.custo_fixo_total)}
+                </strong>
+              </p>
+              <Button
+                onClick={handleSpreading}
+                disabled={spreading.isPending || fichas.length === 0}
+              >
+                {spreading.isPending ? <span className="spinner" /> : 'Executar Spreading'}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
 
+      {/* ── Dialogs ── */}
       <ConfirmDialog
-        open={showDelete}
+        open={showDeleteOrcamento}
         title="Excluir orçamento?"
         message={`"${data.titulo}" será removido permanentemente.`}
         confirmLabel="Excluir"
-        onConfirm={handleDelete}
-        onCancel={() => setShowDelete(false)}
+        onConfirm={handleDeleteOrcamento}
+        onCancel={() => setShowDeleteOrcamento(false)}
         isLoading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteFichaId}
+        title="Excluir ficha?"
+        message="Esta ficha será removida permanentemente do orçamento."
+        confirmLabel="Excluir"
+        onConfirm={handleDeleteFicha}
+        onCancel={() => setDeleteFichaId(null)}
+        isLoading={deleteFicha.isPending}
       />
     </div>
   );
