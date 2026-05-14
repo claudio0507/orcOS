@@ -18,6 +18,13 @@ import {
 import type { Ficha, SpreadingResponse } from '../types';
 import { formatCurrency, formatDateLong } from '../utils/format';
 
+const STATUS_OPTIONS = [
+  { value: 'rascunho',   label: 'Rascunho' },
+  { value: 'em_revisao', label: 'Em Revisão' },
+  { value: 'aprovado',   label: 'Aprovado' },
+  { value: 'cancelado',  label: 'Cancelado' },
+] as const;
+
 export function OrcamentoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -33,13 +40,6 @@ export function OrcamentoDetailPage() {
   const deleteFicha = useDeleteFicha();
   const spreading = useSpreading();
   const updateStatusMutation = useUpdateOrcamento();
-
-  const STATUS_OPTIONS = [
-    { value: 'rascunho',   label: 'Rascunho' },
-    { value: 'em_revisao', label: 'Em Revisão' },
-    { value: 'aprovado',   label: 'Aprovado' },
-    { value: 'cancelado',  label: 'Cancelado' },
-  ] as const;
 
   // ui state
   const [openFormId, setOpenFormId] = useState<string | null>(null);

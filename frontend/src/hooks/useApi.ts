@@ -53,6 +53,7 @@ interface OrcamentoPayload {
   titulo: string;
   descricao?: string;
   custo_fixo_total: string;
+  status?: string;
 }
 
 export function useCreateOrcamento() {
@@ -268,6 +269,7 @@ export function useAuditStatus() {
       const response = await api.get<AuditStatusResponse>('/admin/audit/status');
       return response.data;
     },
+    retry: false,
   });
 }
 
