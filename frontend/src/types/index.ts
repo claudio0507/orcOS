@@ -24,7 +24,7 @@ export interface Ficha {
   unidade: string;
   quantidade: string;
   custo_unitario: string;
-  tipo_precificacao: TipoPrecificacao | string;
+  tipo_precificacao: TipoPrecificacao | (string & {});
   preco_unitario_calculado: string | null;
   ordem: number;
   created_at: string;
