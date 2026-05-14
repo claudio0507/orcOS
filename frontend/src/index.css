@@ -526,3 +526,102 @@ tr:hover td {
   align-items: center;
   padding: 4rem;
 }
+
+/* ── Fichas Section ──────────────────────────────────────────────── */
+.fichas-section {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.fichas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.fichas-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* ── Ficha Form Inline ───────────────────────────────────────────── */
+.ficha-form-inline {
+  background: var(--background);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.param-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.param-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.bdi-manual-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 2fr auto;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Spreading ───────────────────────────────────────────────────── */
+.spreading-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.spreading-badge.ok {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.spreading-badge.warn {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.spreading-table th:last-child,
+.spreading-table td:last-child {
+  font-weight: 600;
+  color: #16a34a;
+}
+
+/* ── Ficha table inline form row ─────────────────────────────────── */
+.ficha-inline-form-row td {
+  padding: 0.75rem 0 0.75rem 0;
+  background: var(--background);
+}
+
+@media (max-width: 768px) {
+  .param-grid-3,
+  .param-grid-5 {
+    grid-template-columns: 1fr;
+  }
+
+  .bdi-manual-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
