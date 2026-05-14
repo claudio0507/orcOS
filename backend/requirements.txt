@@ -10,3 +10,4 @@ python-multipart>=0.0.9
 pyotp>=2.9
 qrcode[pil]>=7
 aiosqlite>=0.20
+apscheduler>=3.10
