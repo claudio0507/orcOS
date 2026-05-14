@@ -128,8 +128,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"] if settings.SANDBOX_MODE else settings.CORS_ORIGINS,
+    allow_credentials=not settings.SANDBOX_MODE,
     allow_methods=["*"],
     allow_headers=["*"],
 )

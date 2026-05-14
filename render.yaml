@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: orcos-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: orcos-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SANDBOX_MODE
+        value: "true"
+      - key: APP_ENV
+        value: sandbox
+
+databases:
+  - name: orcos-db
+    databaseName: orcos
+    user: orcos
+    plan: free

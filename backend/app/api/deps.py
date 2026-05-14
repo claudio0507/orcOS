@@ -8,15 +8,24 @@ from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.db.session import get_session
 from app.models.tenant import Tenant
+
+# UUID padrão do tenant demo — deve existir no banco quando SANDBOX_MODE=True
+_SANDBOX_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
 
 async def get_tenant_id(
     x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
 ) -> uuid.UUID:
-    """Extrai e valida o tenant_id do header X-Tenant-ID."""
+    """Extrai e valida o tenant_id do header X-Tenant-ID.
+
+    Em SANDBOX_MODE, usa tenant demo quando o header estiver ausente.
+    """
     if not x_tenant_id:
+        if settings.SANDBOX_MODE:
+            return _SANDBOX_TENANT_ID
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Header X-Tenant-ID obrigatório.",
