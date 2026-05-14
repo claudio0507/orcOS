@@ -8,6 +8,9 @@ import type { Orcamento } from '../types';
 // ── Helpers ──────────────────────────────────────────────────────
 function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    if (error.response?.status === 403) {
+      return 'Autenticação de dois fatores necessária para esta ação.';
+    }
     const detail = error.response?.data?.detail;
     if (typeof detail === 'string') return detail;
     if (Array.isArray(detail)) return detail.map((d) => d.msg).join(', ');
