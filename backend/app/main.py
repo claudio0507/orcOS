@@ -106,6 +106,7 @@ from app.db.session import engine
 async def run_seed():
     """Roda seed automático se banco estiver vazio."""
     import uuid
+    import asyncio
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import async_sessionmaker
     from app.models.tenant import Tenant
@@ -114,14 +115,25 @@ async def run_seed():
     from app.auth.mfa import generate_totp_secret
     from app.pricing_engine.rounding import RoundingMode
     
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Aguardar banco ficar pronto (retry)
+    for attempt in range(10):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            break
+        except Exception as e:
+            print(f"⏳ Aguardando banco... tentativa {attempt + 1}/10")
+            await asyncio.sleep(2)
+    else:
+        print("❌ Banco não respondeu após 10 tentativas")
+        return
     
     SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     
     async with SessionLocal() as session:
         result = await session.execute(select(Tenant))
         if result.scalar_one_or_none():
+            print("ℹ️ Banco já populado, pulando seed")
             return
         
         tenant_id = uuid.UUID("395b1485-e979-411b-941d-9c152b4de585")
