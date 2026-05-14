@@ -86,7 +86,7 @@ function buildPayload(data: FichaFormData): FichaPayload {
       profit:         String(data.bdi_profit),
       tributes:       String(data.bdi_tributes),
     };
-  } else {
+  } else if (data.tipo_precificacao === 'bdi_manual') {
     parametros_precificacao = {
       components: (data.bdi_components ?? []).map((c) => ({
         name:            c.name,
