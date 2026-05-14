@@ -14,7 +14,7 @@ export function useAuth() {
     ) => {
       setIsLoading(true);
       try {
-        const tenant_id = data.tenant_id || '00000000-0000-0000-0000-000000000000';
+        const tenant_id = data.tenant_id || '395b1485-e979-411b-941d-9c152b4de585';
         const response = await api.post('/auth/login', {
           email: data.email,
           password: data.senha,

@@ -3,7 +3,7 @@ services:
     name: orcos-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install .
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
@@ -13,10 +13,10 @@ services:
           property: connectionString
       - key: SECRET_KEY
         generateValue: true
-      - key: SANDBOX_MODE
-        value: "true"
       - key: APP_ENV
-        value: sandbox
+        value: production
+      - key: CORS_ORIGINS
+        value: '["https://orc-os.vercel.app"]'
 
 databases:
   - name: orcos-db
