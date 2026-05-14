@@ -625,3 +625,35 @@ tr:hover td {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ── Status select inline ── */
+.status-select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.status-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Audit badges ── */
+.audit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.audit-badge.ok        { background: #dcfce7; color: #16a34a; }
+.audit-badge.corrupted { background: #fee2e2; color: #dc2626; }
+.audit-badge.pending   { background: #f1f5f9; color: #64748b; }
+.audit-badge.empty     { background: #fef9c3; color: #a16207; }

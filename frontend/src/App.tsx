@@ -9,6 +9,8 @@ import { OrcamentosListPage } from './pages/OrcamentosListPage';
 import { OrcamentoCreatePage } from './pages/OrcamentoCreatePage';
 import { OrcamentoDetailPage } from './pages/OrcamentoDetailPage';
 import { OrcamentoEditPage } from './pages/OrcamentoEditPage';
+import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
+import { AuditoriaPage } from './pages/AuditoriaPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,6 +37,8 @@ function App() {
             <Route path="/orcamentos/novo" element={<OrcamentoCreatePage />} />
             <Route path="/orcamentos/:id" element={<OrcamentoDetailPage />} />
             <Route path="/orcamentos/:id/editar" element={<OrcamentoEditPage />} />
+            <Route path="/configuracoes" element={<ConfiguracoesPage />} />
+            <Route path="/admin/auditoria" element={<AuditoriaPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
