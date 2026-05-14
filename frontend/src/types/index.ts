@@ -84,3 +84,22 @@ export interface MfaLoginRequest {
   partial_token: string;
   totp_code: string;
 }
+
+export interface MfaSetupResponse {
+  secret: string;
+  provisioning_uri: string;
+}
+
+export interface MfaVerifyRequest {
+  secret: string;
+  totp_code: string;
+}
+
+export type AuditStatusValue = 'OK' | 'CORRUPTED' | 'PENDING' | 'EMPTY';
+
+export interface AuditStatusResponse {
+  status: AuditStatusValue;
+  checked_at?: string;
+  total_entries?: number;
+  corrupted_entry?: string | null;
+}
