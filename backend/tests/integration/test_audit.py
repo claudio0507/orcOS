@@ -1,4 +1,3 @@
-import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +6,6 @@ from app.audit.models import AuditLog
 
 
 async def test_audit_log_created_on_post(client: AsyncClient, session: AsyncSession, tenant_headers: dict):
-    # Criamos um orçamento via POST
     resp = await client.post(
         "/api/v1/orcamentos",
         json={"titulo": "Obra Auditada", "custo_fixo_total": "100.00"},
@@ -16,7 +14,6 @@ async def test_audit_log_created_on_post(client: AsyncClient, session: AsyncSess
     assert resp.status_code == 201
     orcamento_id = resp.json()["id"]
 
-    # Verificamos no banco se o audit_log foi gerado
     result = await session.execute(
         select(AuditLog).where(AuditLog.resource_id == orcamento_id)
     )
@@ -30,9 +27,7 @@ async def test_audit_log_created_on_post(client: AsyncClient, session: AsyncSess
     assert "Obra Auditada" in log.new_value
 
 
-@pytest.mark.skip(reason="Endpoint /verify agora é placeholder na estrutura base")
-async def test_verify_chain_endpoint(client: AsyncClient, session: AsyncSession, tenant_headers: dict):
-    # Fazemos algumas operações para gerar logs
+async def test_verify_chain_endpoint(client: AsyncClient, tenant_headers: dict):
     resp1 = await client.post(
         "/api/v1/orcamentos",
         json={"titulo": "Obra 1", "custo_fixo_total": "100.00"},
@@ -46,10 +41,9 @@ async def test_verify_chain_endpoint(client: AsyncClient, session: AsyncSession,
         headers=tenant_headers,
     )
 
-    # Agora verificamos a chain como ADMIN (o token injetado no conftest é RoleUsuario.ADMIN)
     resp_verify = await client.get(
         "/api/v1/admin/audit/verify",
-        headers=tenant_headers
+        headers=tenant_headers,
     )
 
     assert resp_verify.status_code == 200
@@ -58,9 +52,7 @@ async def test_verify_chain_endpoint(client: AsyncClient, session: AsyncSession,
     assert data["count"] >= 2
 
 
-@pytest.mark.skip(reason="Endpoint /verify agora é placeholder na estrutura base")
 async def test_audit_chain_corrupted(client: AsyncClient, session: AsyncSession, tenant_headers: dict):
-    # Geramos um log válido
     resp1 = await client.post(
         "/api/v1/orcamentos",
         json={"titulo": "Obra Corrompida", "custo_fixo_total": "100.00"},
@@ -68,7 +60,6 @@ async def test_audit_chain_corrupted(client: AsyncClient, session: AsyncSession,
     )
     orc_id = resp1.json()["id"]
 
-    # Pegamos o log e adulteramos diretamente
     result = await session.execute(
         select(AuditLog).where(AuditLog.resource_id == orc_id)
     )
@@ -76,10 +67,9 @@ async def test_audit_chain_corrupted(client: AsyncClient, session: AsyncSession,
     log.new_value = '{"titulo": "Adulterado!", "custo_fixo_total": "999.99"}'
     await session.commit()
 
-    # Agora a verificação deve falhar
     resp_verify = await client.get(
         "/api/v1/admin/audit/verify",
-        headers=tenant_headers
+        headers=tenant_headers,
     )
 
     assert resp_verify.status_code == 200
@@ -88,18 +78,66 @@ async def test_audit_chain_corrupted(client: AsyncClient, session: AsyncSession,
     assert data["broken_at_id"] == str(log.id)
     assert "adulterado" in data["message"].lower()
 
-@pytest.mark.skip(reason="Job em implementação - estrutura base criada")
-async def test_audit_job_status_and_execution(client: AsyncClient, session: AsyncSession, tenant_headers: dict):
+
+async def test_audit_job_executes_and_updates_status(client: AsyncClient, session: AsyncSession, tenant_headers: dict):
+    """Job atualiza _last_result; /status reflete o resultado."""
     from app.audit.job import verify_audit_chain
 
-    # Executamos o job (placeholder)
-    await verify_audit_chain()
+    result = await verify_audit_chain(session=session)
 
-    # O endpoint status deve retornar o placeholder
+    assert result["status"] in ("OK", "EMPTY", "CORRUPTED")
+    assert result["last_run"] is not None
+
     resp_status = await client.get(
         "/api/v1/admin/audit/status",
-        headers=tenant_headers
+        headers=tenant_headers,
     )
     assert resp_status.status_code == 200
     data = resp_status.json()
-    assert data["status"] == "not_implemented"
+    assert data["status"] in ("OK", "EMPTY", "CORRUPTED")
+    assert data["last_run"] is not None
+
+
+async def test_verify_endpoint_returns_valid_structure(client: AsyncClient, tenant_headers: dict):
+    """/verify sempre retorna estrutura válida com status e count."""
+    resp_verify = await client.get(
+        "/api/v1/admin/audit/verify",
+        headers=tenant_headers,
+    )
+    assert resp_verify.status_code == 200
+    data = resp_verify.json()
+    assert data["status"] in ("OK", "EMPTY", "CORRUPTED")
+    assert "count" in data
+    assert "message" in data
+
+
+async def test_audit_chain_broken_prev_hash(client: AsyncClient, session: AsyncSession, tenant_headers: dict):
+    """Quebra de encadeamento (prev_hash errado) é detectada como CORRUPTED."""
+    await client.post(
+        "/api/v1/orcamentos",
+        json={"titulo": "Obra A", "custo_fixo_total": "50.00"},
+        headers=tenant_headers,
+    )
+    await client.post(
+        "/api/v1/orcamentos",
+        json={"titulo": "Obra B", "custo_fixo_total": "75.00"},
+        headers=tenant_headers,
+    )
+
+    result = await session.execute(
+        select(AuditLog).order_by(AuditLog.timestamp.asc())
+    )
+    logs = result.scalars().all()
+    assert len(logs) >= 2
+
+    second_log = logs[1]
+    second_log.prev_hash = "hash_invalido_adulterado_" + "0" * 40
+    await session.commit()
+
+    resp_verify = await client.get(
+        "/api/v1/admin/audit/verify",
+        headers=tenant_headers,
+    )
+    assert resp_verify.status_code == 200
+    data = resp_verify.json()
+    assert data["status"] == "CORRUPTED"

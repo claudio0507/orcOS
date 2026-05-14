@@ -43,6 +43,9 @@ dist/
 .env.*.local
 *.local
 
+# Superpowers brainstorm sessions (mockups temporários)
+.superpowers/brainstorm/
+
 # Logs
 *.log
 logs/
