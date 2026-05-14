@@ -7,7 +7,7 @@ import { Input } from './Input';
 
 const orcamentoSchema = z.object({
   titulo: z.string().min(3, 'Mínimo 3 caracteres').max(100, 'Máximo 100 caracteres'),
-  descricao: z.string().max(500, 'Máximo 500 caracteres').optional(),
+  descricao: z.string().max(500, 'Máximo 500 caracteres').optional().transform(v => v === '' ? undefined : v),
   custo_fixo_total: z
     .string()
     .regex(/^\d+(\.\d{2})?$/, 'Formato inválido. Use: 100.00'),
