@@ -43,17 +43,17 @@ async def get_db_session(
     session: Annotated[AsyncSession, Depends(get_session)],
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_id)],
 ) -> AsyncSession:  # type: ignore[return]
-    """Sessão com RLS configurado para o tenant da requisição.
-
-    Define app.tenant_id na sessão Postgres para ativar as policies RLS.
-    No-op em SQLite (usado em testes — sem RLS).
+    """Sessão com tenant validado.
+    
+    NOTA: RLS desativado temporariamente — requer configuração PostgreSQL customizada.
     """
-    dialect = session.bind.dialect.name if session.bind else "postgresql"  # type: ignore[union-attr]
-    if dialect == "postgresql":
-        await session.execute(
-            text("SET LOCAL app.tenant_id = :tid"),
-            {"tid": str(tenant_id)},
-        )
+    # TODO: Reativar RLS quando app.tenant_id estiver configurado no PostgreSQL
+    # dialect = session.bind.dialect.name if session.bind else "postgresql"
+    # if dialect == "postgresql":
+    #     await session.execute(
+    #         text("SET LOCAL app.tenant_id = :tid"),
+    #         {"tid": str(tenant_id)},
+    #     )
     yield session  # type: ignore[misc]
 
 

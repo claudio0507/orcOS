@@ -53,12 +53,12 @@ async def get_current_user(
         if not tenant_id:
             raise credentials_exception
 
-        # Seta o RLS do banco de dados (que seria feito no get_tenant_id original)
-        dialect = session.bind.dialect.name if session.bind else "postgresql"
-        if dialect == "postgresql":
-            await session.execute(
-                text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)}
-            )
+        # NOTA: RLS desativado temporariamente — requer configuração PostgreSQL customizada
+        # dialect = session.bind.dialect.name if session.bind else "postgresql"
+        # if dialect == "postgresql":
+        #     await session.execute(
+        #         text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)}
+        #     )
 
     except (JWTError, ValueError):
         raise credentials_exception

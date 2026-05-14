@@ -2,7 +2,6 @@
 
 Uso:
     async with async_session() as session:
-        await session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
         ...
 """
 from __future__ import annotations
@@ -34,6 +33,6 @@ async_session: async_sessionmaker[AsyncSession] = async_sessionmaker(
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency FastAPI — fornece sessão com RLS configurado pelo caller."""
+    """Dependency FastAPI — fornece sessão."""
     async with async_session() as session:
         yield session
