@@ -1,5 +1,6 @@
 // src/pages/LoginPage.tsx
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { Card } from '../components/ui/Card';
 import { LoginForm } from '../components/auth/LoginForm';
 import { MFAForm } from '../components/auth/MFAForm';
@@ -16,7 +17,11 @@ export function LoginPage() {
   }
 
   async function handleMfaVerify(code: string) {
-    await verifyMfa({ partial_token: partialToken, totp_code: code });
+    try {
+      await verifyMfa({ partial_token: partialToken, totp_code: code });
+    } catch {
+      toast.error('Código inválido ou expirado. Tente novamente.');
+    }
   }
 
   return (
