@@ -99,10 +99,60 @@ proporcionalmente ao peso de cada linha, preservando a invariante:
 from contextlib import asynccontextmanager
 
 from app.audit.job import start_scheduler, stop_scheduler
+from app.db.base import Base
+from app.db.session import engine
+
+
+async def run_seed():
+    """Roda seed automático se banco estiver vazio."""
+    import uuid
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from app.models.tenant import Tenant
+    from app.models.usuario import Usuario, RoleUsuario
+    from app.auth.password import get_password_hash
+    from app.auth.mfa import generate_totp_secret
+    from app.pricing_engine.rounding import RoundingMode
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+    
+    async with SessionLocal() as session:
+        result = await session.execute(select(Tenant))
+        if result.scalar_one_or_none():
+            return
+        
+        tenant_id = uuid.UUID("395b1485-e979-411b-941d-9c152b4de585")
+        tenant = Tenant(
+            id=tenant_id,
+            nome="Demo Tenant",
+            slug="demo",
+            rounding_mode=RoundingMode.BANKER
+        )
+        session.add(tenant)
+        
+        mfa_secret = generate_totp_secret()
+        user = Usuario(
+            id=uuid.uuid4(),
+            tenant_id=tenant_id,
+            email="admin@demo.com",
+            nome="Admin Demo",
+            hashed_password=get_password_hash("demo123"),
+            role=RoleUsuario.ADMIN,
+            ativo=True,
+            mfa_enabled=False,
+            mfa_secret=mfa_secret
+        )
+        session.add(user)
+        await session.commit()
+        print("✅ Seed automático executado!")
 
 
 @asynccontextmanager
 async def lifespan_app(app: FastAPI):
+    await run_seed()
     start_scheduler()
     yield
     stop_scheduler()
