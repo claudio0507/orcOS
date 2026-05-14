@@ -3,7 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
-import type { Ficha, FichaCalcResult, Orcamento, SpreadingResponse } from '../types';
+import type {
+  AuditStatusResponse,
+  Ficha,
+  FichaCalcResult,
+  MfaSetupResponse,
+  MfaVerifyRequest,
+  Orcamento,
+  SpreadingResponse,
+} from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────
 function extractErrorMessage(error: unknown): string {
@@ -219,6 +227,60 @@ export function useSpreading() {
         `/orcamentos/${orcamentoId}/spreading`,
       );
       return response.data;
+    },
+    onError: (error: unknown) => {
+      toast.error(extractErrorMessage(error));
+    },
+  });
+}
+
+// ── MFA Setup ─────────────────────────────────────────────────────
+export function useMfaSetup() {
+  return useMutation({
+    mutationFn: async () => {
+      const response = await api.post<MfaSetupResponse>('/auth/mfa/setup');
+      return response.data;
+    },
+    onError: (error: unknown) => {
+      toast.error(extractErrorMessage(error));
+    },
+  });
+}
+
+// ── MFA Verify (setup flow) ────────────────────────────────────────
+export function useMfaVerify() {
+  return useMutation({
+    mutationFn: async (payload: MfaVerifyRequest) => {
+      const response = await api.post('/auth/mfa/verify', payload);
+      return response.data;
+    },
+    onError: (error: unknown) => {
+      toast.error(extractErrorMessage(error));
+    },
+  });
+}
+
+// ── Audit Status ───────────────────────────────────────────────────
+export function useAuditStatus() {
+  return useQuery({
+    queryKey: ['audit-status'],
+    queryFn: async () => {
+      const response = await api.get<AuditStatusResponse>('/admin/audit/status');
+      return response.data;
+    },
+  });
+}
+
+// ── Audit Verify ───────────────────────────────────────────────────
+export function useAuditVerify() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const response = await api.get<AuditStatusResponse>('/admin/audit/verify');
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['audit-status'], data);
     },
     onError: (error: unknown) => {
       toast.error(extractErrorMessage(error));
