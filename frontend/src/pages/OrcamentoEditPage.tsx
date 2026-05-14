@@ -25,7 +25,14 @@ export function OrcamentoEditPage() {
   }
 
   if (!data) {
-    return <p className="muted">Orçamento não encontrado.</p>;
+    return (
+      <div className="empty-state">
+        <p>Orçamento não encontrado.</p>
+        <a href="/orcamentos" style={{ marginTop: '1rem', display: 'block', color: 'var(--primary)' }}>
+          ← Voltar para lista
+        </a>
+      </div>
+    );
   }
 
   return (

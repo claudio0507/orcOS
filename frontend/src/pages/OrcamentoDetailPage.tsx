@@ -6,16 +6,7 @@ import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { useDeleteOrcamento, useOrcamento } from '../hooks/useApi';
-
-function formatCurrency(value: string) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    Number(value),
-  );
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR');
-}
+import { formatCurrency, formatDateLong } from '../utils/format';
 
 export function OrcamentoDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,12 +16,13 @@ export function OrcamentoDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
 
   async function handleDelete() {
-    await deleteMutation.mutateAsync(id!, {
-      onSuccess: () => {
-        toast.success('Orçamento excluído.');
-        navigate('/orcamentos');
-      },
-    });
+    try {
+      await deleteMutation.mutateAsync(id!);
+      toast.success('Orçamento excluído.');
+      navigate('/orcamentos');
+    } catch {
+      // error toast already shown by useDeleteOrcamento onError
+    }
   }
 
   if (isLoading) {
@@ -85,11 +77,11 @@ export function OrcamentoDetailPage() {
           </div>
           <div className="detail-field">
             <label>Criado em</label>
-            <p className="muted">{formatDate(data.created_at)}</p>
+            <p className="muted">{formatDateLong(data.created_at)}</p>
           </div>
           <div className="detail-field">
             <label>Atualizado em</label>
-            <p className="muted">{formatDate(data.updated_at)}</p>
+            <p className="muted">{formatDateLong(data.updated_at)}</p>
           </div>
           {data.descricao && (
             <div className="detail-field" style={{ gridColumn: '1 / -1' }}>

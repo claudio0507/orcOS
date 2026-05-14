@@ -6,16 +6,7 @@ import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { useDeleteOrcamento, useOrcamentos } from '../hooks/useApi';
-
-function formatCurrency(value: string) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    Number(value),
-  );
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR');
-}
+import { formatCurrency, formatDateShort } from '../utils/format';
 
 export function OrcamentosListPage() {
   const navigate = useNavigate();
@@ -26,12 +17,13 @@ export function OrcamentosListPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
-    await deleteMutation.mutateAsync(deleteTarget.id, {
-      onSuccess: () => {
-        toast.success('Orçamento excluído.');
-        setDeleteTarget(null);
-      },
-    });
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      toast.success('Orçamento excluído.');
+      setDeleteTarget(null);
+    } catch {
+      // error toast already shown by useDeleteOrcamento onError
+    }
   }
 
   return (
@@ -78,7 +70,7 @@ export function OrcamentosListPage() {
                   <td style={{ fontWeight: 500 }}>{orc.titulo}</td>
                   <td><StatusBadge status={orc.status} /></td>
                   <td>{formatCurrency(orc.custo_fixo_total)}</td>
-                  <td className="muted">{formatDate(orc.created_at)}</td>
+                  <td className="muted">{formatDateShort(orc.created_at)}</td>
                   <td>
                     <div className="table-actions">
                       <Link className="action-btn" to={`/orcamentos/${orc.id}`}>
