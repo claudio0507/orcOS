@@ -20,7 +20,7 @@ export function SpreadingResultTable({ result, onClear }: SpreadingResultTablePr
           gap: '0.5rem',
         }}
       >
-        <span className={`badge ${result.ca001_validado ? 'badge-green' : 'badge-yellow'}`}>
+        <span className={`spreading-badge ${result.ca001_validado ? 'ok' : 'warn'}`}>
           {result.ca001_validado ? '✓ CA-001 validado' : '⚠ CA-001 falhou'}
         </span>
         <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.875rem', color: 'var(--muted)' }}>
