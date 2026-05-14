@@ -21,6 +21,7 @@ import { formatCurrency, formatDateLong } from '../utils/format';
 export function OrcamentoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  if (!id) return null;
 
   // orcamento
   const { data, isLoading, error } = useOrcamento(id);
@@ -36,6 +37,7 @@ export function OrcamentoDetailPage() {
   // ui state
   const [openFormId, setOpenFormId] = useState<string | null>(null);
   const [deleteFichaId, setDeleteFichaId] = useState<string | null>(null);
+  const [pendingCalcId, setPendingCalcId] = useState<string | null>(null);
   const [spreadingResult, setSpreadingResult] = useState<SpreadingResponse | null>(null);
 
   // ── Handlers orcamento ──────────────────────────────────────────
@@ -59,11 +61,14 @@ export function OrcamentoDetailPage() {
   }
 
   async function handleCalcular(fichaId: string) {
+    setPendingCalcId(fichaId);
     try {
       const result = await calcularFicha.mutateAsync({ orcamentoId: id!, fichaId });
       toast.success(`Preço calculado: ${formatCurrency(result.preco_unitario)}`);
     } catch {
       // error toast shown by mutation
+    } finally {
+      setPendingCalcId(null);
     }
   }
 
@@ -276,7 +281,7 @@ export function OrcamentoDetailPage() {
                               <button
                                 className="action-btn"
                                 onClick={() => handleCalcular(ficha.id)}
-                                disabled={calcularFicha.isPending}
+                                disabled={pendingCalcId === ficha.id}
                                 title="Calcular preço unitário"
                               >
                                 Calcular
@@ -321,32 +326,33 @@ export function OrcamentoDetailPage() {
               </div>
             )}
 
-            {/* Rodapé: custo fixo + spreading */}
-            <div
-              style={{
-                marginTop: '1.25rem',
-                paddingTop: '1rem',
-                borderTop: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '1rem',
-                flexWrap: 'wrap',
-              }}
-            >
-              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                Custo fixo total do orçamento:{' '}
-                <strong style={{ color: 'var(--foreground)' }}>
-                  {formatCurrency(data.custo_fixo_total)}
-                </strong>
-              </p>
-              <Button
-                onClick={handleSpreading}
-                disabled={spreading.isPending || fichas.length === 0}
+            {!spreadingResult && (
+              <div
+                style={{
+                  marginTop: '1.25rem',
+                  paddingTop: '1rem',
+                  borderTop: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  flexWrap: 'wrap',
+                }}
               >
-                {spreading.isPending ? <span className="spinner" /> : 'Executar Spreading'}
-              </Button>
-            </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                  Custo fixo total do orçamento:{' '}
+                  <strong style={{ color: 'var(--foreground)' }}>
+                    {formatCurrency(data.custo_fixo_total)}
+                  </strong>
+                </p>
+                <Button
+                  onClick={handleSpreading}
+                  disabled={spreading.isPending || fichas.length === 0}
+                >
+                  {spreading.isPending ? <span className="spinner" /> : 'Executar Spreading'}
+                </Button>
+              </div>
+            )}
           </>
         )}
       </div>
