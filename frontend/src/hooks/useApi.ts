@@ -26,7 +26,7 @@ export function useOrcamentos() {
   });
 }
 
-export function useOrcamento(id: string) {
+export function useOrcamento(id: string | undefined) {
   return useQuery({
     queryKey: ['orcamento', id],
     queryFn: async () => {
