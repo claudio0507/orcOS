@@ -25,6 +25,8 @@ async def login(
     payload: LoginRequest,
     session: SessionDep,
 ) -> TokenResponse:
+    import logging
+    logger = logging.getLogger(__name__)
     """
     Realiza a autenticação de um usuário.
 
@@ -41,6 +43,7 @@ async def login(
     Raises:
         HTTPException: Se as credenciais forem inválidas ou o usuário estiver inativo.
     """
+    logger.info(f"Login attempt: {payload.email} / {payload.tenant_id}")
     result = await session.execute(
         select(Usuario).where(
             Usuario.tenant_id == payload.tenant_id,
@@ -48,6 +51,7 @@ async def login(
         )
     )
     user = result.scalar_one_or_none()
+    logger.info(f"User found: {user is not None}")
 
     if not user or not user.ativo:
         raise HTTPException(
