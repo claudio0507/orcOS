@@ -1,8 +1,9 @@
 // src/components/ui/ProtectedRoute.tsx
 import { Navigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
