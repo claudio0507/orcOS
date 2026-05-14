@@ -21,7 +21,6 @@ import { formatCurrency, formatDateLong } from '../utils/format';
 export function OrcamentoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  if (!id) return null;
 
   // orcamento
   const { data, isLoading, error } = useOrcamento(id);
