@@ -6,7 +6,6 @@ import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { FichaForm } from '../components/ui/FichaForm';
 import { SpreadingResultTable } from '../components/ui/SpreadingResultTable';
-import { StatusBadge } from '../components/ui/StatusBadge';
 import {
   useCalcularFicha,
   useDeleteFicha,
@@ -14,6 +13,7 @@ import {
   useFichas,
   useOrcamento,
   useSpreading,
+  useUpdateOrcamento,
 } from '../hooks/useApi';
 import type { Ficha, SpreadingResponse } from '../types';
 import { formatCurrency, formatDateLong } from '../utils/format';
@@ -32,6 +32,14 @@ export function OrcamentoDetailPage() {
   const calcularFicha = useCalcularFicha();
   const deleteFicha = useDeleteFicha();
   const spreading = useSpreading();
+  const updateStatusMutation = useUpdateOrcamento();
+
+  const STATUS_OPTIONS = [
+    { value: 'rascunho',   label: 'Rascunho' },
+    { value: 'em_revisao', label: 'Em Revisão' },
+    { value: 'aprovado',   label: 'Aprovado' },
+    { value: 'cancelado',  label: 'Cancelado' },
+  ] as const;
 
   // ui state
   const [openFormId, setOpenFormId] = useState<string | null>(null);
@@ -88,6 +96,15 @@ export function OrcamentoDetailPage() {
       const result = await spreading.mutateAsync(id!);
       setSpreadingResult(result);
       toast.success(`Spreading aplicado! Total: ${formatCurrency(result.total_final)}`);
+    } catch {
+      // error toast shown by mutation
+    }
+  }
+
+  async function handleStatusChange(newStatus: string) {
+    try {
+      await updateStatusMutation.mutateAsync({ id: id!, payload: { status: newStatus } });
+      toast.success('Status atualizado.');
     } catch {
       // error toast shown by mutation
     }
@@ -160,7 +177,23 @@ export function OrcamentoDetailPage() {
         <div className="detail-grid">
           <div className="detail-field">
             <label>Status</label>
-            <StatusBadge status={data.status} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <select
+                value={data.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={updateStatusMutation.isPending}
+                className="status-select"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {updateStatusMutation.isPending && (
+                <span className="spinner" style={{ width: '0.875rem', height: '0.875rem' }} />
+              )}
+            </div>
           </div>
           <div className="detail-field">
             <label>Custo Fixo Total</label>
