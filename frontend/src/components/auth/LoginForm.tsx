@@ -1,40 +1,65 @@
+// src/components/auth/LoginForm.tsx
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../../hooks/useAuth';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  senha: z.string().min(6),
+  email: z.string().email('Email inválido'),
+  senha: z.string().min(6, 'Mínimo 6 caracteres'),
 });
 
 type LoginData = z.infer<typeof loginSchema>;
 
-export function LoginForm() {
+interface LoginFormProps {
+  onMfaRequired?: (partialToken: string) => void;
+}
+
+export function LoginForm({ onMfaRequired }: LoginFormProps) {
   const { login, isLoading } = useAuth();
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginData>({
-    resolver: zodResolver(loginSchema),
-  });
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors },
+  } = useForm<LoginData>({ resolver: zodResolver(loginSchema) });
 
   const onSubmit = async (data: LoginData) => {
     try {
-      await login(data);
-    } catch (e) {
-      alert('Erro ao entrar. Verifique suas credenciais.');
+      await login(data, onMfaRequired);
+    } catch {
+      setError('root', { message: 'Email ou senha incorretos.' });
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <input {...register('email')} placeholder="Email" disabled={isLoading} />
-      {errors.email && <span>{errors.email.message}</span>}
-      
-      <input {...register('senha')} type="password" placeholder="Senha" disabled={isLoading} />
-      {errors.senha && <span>{errors.senha.message}</span>}
-      
-      <button type="submit" disabled={isLoading}>
-        {isLoading ? 'Entrando...' : 'Entrar'}
-      </button>
+      <Input
+        label="Email"
+        type="email"
+        placeholder="seu@email.com"
+        error={errors.email?.message}
+        disabled={isLoading}
+        {...register('email')}
+      />
+      <Input
+        label="Senha"
+        type="password"
+        placeholder="••••••••"
+        error={errors.senha?.message}
+        disabled={isLoading}
+        {...register('senha')}
+      />
+      {errors.root && (
+        <p className="error-message" style={{ marginBottom: '0.75rem' }}>
+          {errors.root.message}
+        </p>
+      )}
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading ? <span className="spinner" /> : 'Entrar'}
+      </Button>
     </form>
   );
 }
