@@ -224,3 +224,59 @@ app.include_router(orcamentos_spreading.router, prefix="/api/v1")
 async def health() -> dict[str, str]:
     """Retorna status e versão da API."""
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.post("/seed-demo", tags=["Sistema"], include_in_schema=False)
+async def seed_demo() -> dict[str, str]:
+    """Força recriação do usuário demo."""
+    import uuid
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from app.models.tenant import Tenant
+    from app.models.usuario import Usuario, RoleUsuario
+    from app.auth.password import get_password_hash
+    from app.auth.mfa import generate_totp_secret
+    from app.pricing_engine.rounding import RoundingMode
+    
+    SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+    
+    async with SessionLocal() as session:
+        # Verifica se tenant existe
+        result = await session.execute(select(Tenant))
+        tenant = result.scalar_one_or_none()
+        
+        if not tenant:
+            tenant_id = uuid.UUID("395b1485-e979-411b-941d-9c152b4de585")
+            tenant = Tenant(
+                id=tenant_id,
+                nome="Demo Tenant",
+                slug="demo",
+                rounding_mode=RoundingMode.BANKER
+            )
+            session.add(tenant)
+            await session.flush()
+        
+        # Verifica se usuário demo existe
+        result = await session.execute(
+            select(Usuario).where(Usuario.email == "admin@demo.com")
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            mfa_secret = generate_totp_secret()
+            user = Usuario(
+                id=uuid.uuid4(),
+                tenant_id=tenant.id,
+                email="admin@demo.com",
+                nome="Admin Demo",
+                hashed_password=get_password_hash("demo123"),
+                role=RoleUsuario.ADMIN,
+                ativo=True,
+                mfa_enabled=False,
+                mfa_secret=mfa_secret
+            )
+            session.add(user)
+            await session.commit()
+            return {"status": "created", "email": "admin@demo.com", "password": "demo123"}
+        
+        return {"status": "exists", "email": "admin@demo.com"}
