@@ -1,7 +1,8 @@
 // src/pages/OrcamentoEditPage.tsx
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { OrcamentoForm, OrcamentoFormData } from '../components/ui/OrcamentoForm';
+import { OrcamentoForm } from '../components/ui/OrcamentoForm';
+import type { OrcamentoFormData } from '../components/ui/OrcamentoForm';
 import { useOrcamento, useUpdateOrcamento } from '../hooks/useApi';
 
 export function OrcamentoEditPage() {

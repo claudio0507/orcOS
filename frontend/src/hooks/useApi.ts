@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
-import { Orcamento } from '../types';
+import type { Orcamento } from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────
 function extractErrorMessage(error: unknown): string {
