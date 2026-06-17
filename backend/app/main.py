@@ -104,7 +104,7 @@ from app.db.session import engine
 
 
 async def run_seed():
-    """Roda seed automático se banco estiver vazio."""
+    """Roda seed automático - sempre garante usuário demo existe."""
     import uuid
     import asyncio
     from sqlalchemy import select
@@ -115,51 +115,62 @@ async def run_seed():
     from app.auth.mfa import generate_totp_secret
     from app.pricing_engine.rounding import RoundingMode
     
-    # Aguardar banco ficar pronto (retry)
-    for attempt in range(10):
-        try:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            break
-        except Exception as e:
-            print(f"⏳ Aguardando banco... tentativa {attempt + 1}/10")
-            await asyncio.sleep(2)
-    else:
-        print("❌ Banco não respondeu após 10 tentativas")
-        return
-    
     SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     
-    async with SessionLocal() as session:
-        result = await session.execute(select(Tenant))
-        if result.scalar_one_or_none():
-            print("ℹ️ Banco já populado, pulando seed")
-            return
-        
-        tenant_id = uuid.UUID("395b1485-e979-411b-941d-9c152b4de585")
-        tenant = Tenant(
-            id=tenant_id,
-            nome="Demo Tenant",
-            slug="demo",
-            rounding_mode=RoundingMode.BANKER
-        )
-        session.add(tenant)
-        
-        mfa_secret = generate_totp_secret()
-        user = Usuario(
-            id=uuid.uuid4(),
-            tenant_id=tenant_id,
-            email="admin@demo.com",
-            nome="Admin Demo",
-            hashed_password=get_password_hash("demo123"),
-            role=RoleUsuario.ADMIN,
-            ativo=True,
-            mfa_enabled=False,
-            mfa_secret=mfa_secret
-        )
-        session.add(user)
-        await session.commit()
-        print("✅ Seed automático executado!")
+    for attempt in range(10):
+        try:
+            # Cria tabelas
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            
+            async with SessionLocal() as session:
+                # Busca ou cria tenant
+                result = await session.execute(select(Tenant))
+                tenant = result.scalar_one_or_none()
+                
+                if not tenant:
+                    tenant_id = uuid.UUID("395b1485-e979-411b-941d-9c152b4de585")
+                    tenant = Tenant(
+                        id=tenant_id,
+                        nome="Demo Tenant",
+                        slug="demo",
+                        rounding_mode=RoundingMode.BANKER
+                    )
+                    session.add(tenant)
+                    await session.flush()
+                    print("✅ Tenant criado")
+                
+                # Sempre verifica/cria usuário demo
+                result = await session.execute(
+                    select(Usuario).where(Usuario.email == "admin@demo.com")
+                )
+                user = result.scalar_one_or_none()
+                
+                if not user:
+                    mfa_secret = generate_totp_secret()
+                    user = Usuario(
+                        id=uuid.uuid4(),
+                        tenant_id=tenant.id,
+                        email="admin@demo.com",
+                        nome="Admin Demo",
+                        hashed_password=get_password_hash("demo123"),
+                        role=RoleUsuario.ADMIN,
+                        ativo=True,
+                        mfa_enabled=False,
+                        mfa_secret=mfa_secret
+                    )
+                    session.add(user)
+                    await session.commit()
+                    print("✅ Usuário demo criado: admin@demo.com / demo123")
+                else:
+                    print("ℹ️ Usuário demo já existe")
+                return
+                
+        except Exception as e:
+            print(f"⏳ Tentativa {attempt + 1}/10 - {e}")
+            await asyncio.sleep(2)
+    
+    print("❌ Seed falhou após 10 tentativas")
 
 
 @asynccontextmanager
@@ -190,8 +201,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"] if settings.SANDBOX_MODE else settings.CORS_ORIGINS,
+    allow_credentials=not settings.SANDBOX_MODE,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -224,3 +235,59 @@ app.include_router(orcamentos_spreading.router, prefix="/api/v1")
 async def health() -> dict[str, str]:
     """Retorna status e versão da API."""
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.post("/seed-demo", tags=["Sistema"], include_in_schema=False)
+async def seed_demo() -> dict[str, str]:
+    """Força recriação do usuário demo."""
+    import uuid
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from app.models.tenant import Tenant
+    from app.models.usuario import Usuario, RoleUsuario
+    from app.auth.password import get_password_hash
+    from app.auth.mfa import generate_totp_secret
+    from app.pricing_engine.rounding import RoundingMode
+    
+    SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+    
+    async with SessionLocal() as session:
+        # Verifica se tenant existe
+        result = await session.execute(select(Tenant))
+        tenant = result.scalar_one_or_none()
+        
+        if not tenant:
+            tenant_id = uuid.UUID("395b1485-e979-411b-941d-9c152b4de585")
+            tenant = Tenant(
+                id=tenant_id,
+                nome="Demo Tenant",
+                slug="demo",
+                rounding_mode=RoundingMode.BANKER
+            )
+            session.add(tenant)
+            await session.flush()
+        
+        # Verifica se usuário demo existe
+        result = await session.execute(
+            select(Usuario).where(Usuario.email == "admin@demo.com")
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            mfa_secret = generate_totp_secret()
+            user = Usuario(
+                id=uuid.uuid4(),
+                tenant_id=tenant.id,
+                email="admin@demo.com",
+                nome="Admin Demo",
+                hashed_password=get_password_hash("demo123"),
+                role=RoleUsuario.ADMIN,
+                ativo=True,
+                mfa_enabled=False,
+                mfa_secret=mfa_secret
+            )
+            session.add(user)
+            await session.commit()
+            return {"status": "created", "email": "admin@demo.com", "password": "demo123"}
+        
+        return {"status": "exists", "email": "admin@demo.com"}

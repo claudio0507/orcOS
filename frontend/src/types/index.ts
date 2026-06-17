@@ -1,3 +1,4 @@
+// src/types/index.ts
 export enum TipoPrecificacao {
   MARKUP = 'markup',
   BDI_MANUAL = 'bdi_manual',
@@ -23,11 +24,40 @@ export interface Ficha {
   unidade: string;
   quantidade: string;
   custo_unitario: string;
-  tipo_precificacao: TipoPrecificacao | string;
+  tipo_precificacao: TipoPrecificacao | (string & {});
   preco_unitario_calculado: string | null;
   ordem: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface FichaCalcResult {
+  ficha_id: string;
+  preco_unitario: string;
+  divisor: string | null;
+  is_alert: boolean;
+  detalhes: Record<string, string>;
+}
+
+export interface SpreadingResultLine {
+  ficha_id: string;
+  descricao: string;
+  variable_unit_price: string;
+  quantity: string;
+  allocated_fixed: string;
+  final_unit_price: string;
+  final_line_total: string;
+  carries_residue: boolean;
+}
+
+export interface SpreadingResponse {
+  orcamento_id: string;
+  custo_fixo_total: string;
+  total_variavel: string;
+  total_final: string;
+  residuo_aplicado: boolean;
+  linhas: SpreadingResultLine[];
+  ca001_validado: boolean;
 }
 
 export interface LoginRequest {
@@ -53,4 +83,23 @@ export interface User {
 export interface MfaLoginRequest {
   partial_token: string;
   totp_code: string;
+}
+
+export interface MfaSetupResponse {
+  secret: string;
+  provisioning_uri: string;
+}
+
+export interface MfaVerifyRequest {
+  secret: string;
+  totp_code: string;
+}
+
+export type AuditStatusValue = 'OK' | 'CORRUPTED' | 'PENDING' | 'EMPTY';
+
+export interface AuditStatusResponse {
+  status: AuditStatusValue;
+  checked_at?: string;
+  total_entries?: number;
+  corrupted_entry?: string | null;
 }
